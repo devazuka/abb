@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗣️</text></svg>">
+  <title>Audibook Bay Finder</title>
+</head>
+<style>
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./barlow-condensed.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+.author, .result {
+  display: flex;
+  gap: 0.5em;
+}
+
+.result {
+  padding-left: 4px;
+  user-select: none;
+  cursor: default;
+}
+.result:hover {
+  background-color: #ddd;
+}
+
+.title, .author, .author span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a { text-decoration: none }
+* {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  box-sizing: border-box;
+}
+
+#searchbox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 6px 6px;
+  background: #ffb9ff;
+  padding: 6px 12px 6px 6px;
+  border-radius: 9px;
+  gap: 6px;
+}
+
+input#search {
+  border: 0;
+  background: transparent;
+  padding-left: 6px;
+  font-size: 22px;
+  text-transform: uppercase;
+  flex-grow: 1;
+}
+
+input#search:focus {
+  outline: none;
+}
+
+label:has(input#search):focus-within {
+  outline: 2px solid #f0f;
+}
+
+label:has(input#search) {
+  background: #fffd;
+  border-radius: 6px;
+  display: flex;
+  flex-grow: 1;
+}
+
+*::selection {
+  color: white;
+  background: #a0a;
+}
+
+h1 {
+  font-size: 24px;
+  text-align: center;
+  margin: 0px;
+  height: 40px;
+  display: flex;
+  align-items: self-end;
+  justify-content: center;
+}
+
+code {
+  font-family: monospace;
+}
+
+mark {
+  background-color: #edffc3;
+  color: #003961;
+}
+
+#cover {
+  height: 320px;
+  width: 320px;
+  background-size: contain;
+  background-color: black;
+  background-repeat: no-repeat;
+  background-position: center;
+  border-radius: 6px;
+  display: flex;
+  align-items: end;
+  justify-content: end;
+  color: white;
+  flex-shrink: 0;
+}
+
+code {
+  text-transform: uppercase;
+  color: grey;
+}
+
+#tags, #categories {
+  display: flex;
+  padding: 0;
+}
+
+#tags {
+  gap: 7px;
+  flex-wrap: wrap;
+
+}
+#categories { gap: 29px }
+
+#tags li, #categories li:first-child {
+  list-style: none;
+  margin: 0;
+}
+
+#tags li {
+  border-radius: 6px;
+  background-color: white;
+  padding: 0 3px;
+}
+
+#selection-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: calc(100vh - 40px);
+  width: min(65%, 700px);
+  flex-shrink: 0;
+  padding: 6px;
+  background-color: #f3efef;
+  border-radius: 6px;
+}
+
+#search-panel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  width: max(35%, calc(100% - 700px));
+}
+
+#hits {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+#description {
+  font-size: 14px;
+  color: #333;
+  overflow-y: scroll;
+  width: 100%;
+}
+
+#meta .meta {
+  display: flex;
+}
+#meta { width: 100% }
+.meta b:after { content: ':' }
+.meta b {
+  color: grey;
+  margin-right: 0.25em;
+}
+
+#selection-panel hr {
+  background: #cfcbcb;
+  height: 2px;
+  width: 320px;
+  border: 0;
+}
+
+#panels { display: flex }
+@media (width <= 1250px) {
+  #panels { flex-direction: column }
+  #description { overflow: unset }
+  #search-panel {
+    height: calc(35vh - 20px);
+    width: 100%;
+    flex-direction: column;
+    padding-top: 6px;
+    padding-left: 6px;
+  }
+  #selection-panel {
+    width: 100%;
+    height: calc(65vh - 20px);
+    overflow-y: scroll;
+  }
+}
+
+</style>
+<body>
+  <template id="result">
+    <div class="result">
+      <a class="title"></a>
+      <div class="author"></div>
+    </div>
+  </template>
+  <h1>💾 Audibook Bay Finder 🏴‍☠️</h1>
+  <div id="panels">
+    <div id="search-panel">
+      <div id="searchbox">
+        <label><input id="search" value="" autofocus><span>🔍</span></label>
+        <label>show
+          <select id="hits-per-page">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+      <span>hits: <span id="hit-count">0</span></span>
+      </div>
+      <div id="hits"></div>
+    </div>
+    <div id="selection-panel">
+      <h2 id="title">No book selected</h2>
+      <div id="cover"></div>
+      <code id="hash"></code>
+      <ul id="categories"></ul>
+      <div id="description"></div>
+      <hr>
+      <div id="meta"></div>
+      <ul id="tags"></ul>
+      <a id="magnet" href=""></a>
+    </div>
+  </div>
+</body>
+<script type="module">
+// TODO:
+// - details view
+// - highlight
+// - debounce
+// - paging and navigation
+// - cache hits?
+const attrs = ['name', 'description', 'author', 'narrator', 'tag', 'gr_title', 'gr_authors']
+const searchConfig = {
+  facets: ['cat'],
+  attributesToSearchOn: attrs,
+  attributesToHighlight: attrs,
+  attributesToRetrieve: [
+    'id',
+    'creationDate',
+    'combinedFileSize',
+    'fileSize',
+    'encoding',
+    'magnet',
+    'author',
+    'narrator',
+    'datePublished',
+    'name',
+    'image',
+    'cat',
+    'tag',
+    'description',
+    'url',
+    'encodingFormat',
+    'bitrate',
+    'gr_title',
+    'gr_thumbnail',
+    'gr_authors',
+    'gr_year',
+    'gr_bookId',
+    'gr_workId',
+    'gr_ratingValue',
+    'gr_ratingCount',
+  ],
+  highlightPreTag: '[[',
+  highlightPostTag: ']]',
+  page: 1,
+}
+
+const queryCache = new Map()
+const multiSearch = async query => {
+  const key = JSON.stringify(query)
+  const cached = queryCache.get(key)
+  if (cached) return cached
+  const res = await fetch('/search', {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...searchConfig, ...query }),
+    method: 'POST',
+    mode: 'cors',
+    credentials: 'omit',
+  })
+
+  // TODO: handle errors lol
+  const data = await res.json()
+  queryCache.set(cached, data)
+  return data
+}
+
+const wrapOddMatches = (text, i) => {
+  if (i % 2 === 0) return text
+  const m = document.createElement('mark')
+  m.append(text)
+  return m
+}
+
+const wrap = (tag, text) => {
+  const el = document.createElement(tag)
+  el.append(...hl(text))
+  return el
+}
+
+const wrapInSpan = text => wrap('span', text)
+const wrapInLi = text => wrap('li', text)
+const wrapInP = text => wrap('p', text)
+
+const hl = str => Array.isArray(str)
+  ? str.map(wrapInP)
+  : str
+      .replace(/\]\][ _.,;'"-]*\[\[/g, ' ')
+      .split(/\[\[(.+?)\]\]/g)
+      .map(wrapOddMatches)
+
+const fmtMagnet = (link, name) => {
+  const url = new URL(link.replace(/^magnet:xt/, 'magnet:?xt'))
+  url.searchParams.set('dn', name)
+  return String(url)
+    .replace(/^magnet:\?xt=urn%3Abtih%3A/, 'magnet:?xt=urn:btih:')
+}
+
+const tmpl = id => document.getElementById(id).content.firstElementChild
+const resultTemplate = tmpl('result')
+
+const replace = (el, content) => {
+  while (el.firstChild) el.firstChild.remove()
+  el.append(...content)
+}
+
+const firstIfArr = arr => Array.isArray(arr) ? arr[0] : arr
+const grAuthorFmt = author => wrapInSpan(author.name)
+const formatResult = (hit, n) => {
+  const el = resultTemplate.cloneNode(true)
+  el.id = hit.id
+  el.dataset.n = n
+  const [title] = el.getElementsByClassName('title')
+  const [author] = el.getElementsByClassName('author')
+  const missingGrInfo = !hit._formatted.gr_authors?.length
+  const authors = missingGrInfo
+    ? hit._formatted.author.map(wrapInSpan)
+    : hit._formatted.gr_authors.map(grAuthorFmt)
+
+  const name =
+    hit._formatted.gr_title ||
+    (missingGrInfo && authors.length
+      ? firstIfArr(hit._formatted.name)
+      : firstIfArr(hit._formatted.name).replace(/ - [^-]+$/, ''))
+
+  title.append(...hl(name))
+  title.href = fmtMagnet(hit.magnet, hit.name)
+  author.append(...authors)
+  return el
+}
+
+const hitsElem = document.getElementById('hits')
+const searchInput = document.getElementById('search')
+const hitCountElem = document.getElementById('hit-count')
+const hitsPerPageSelect = document.getElementById('hits-per-page')
+const params = new URL(location).searchParams
+let raf
+let searchResult = []
+const search = async () => {
+  params.set('q', localStorage.search = searchInput.value)
+  params.set('s', localStorage.hitsPerPage = hitsPerPageSelect.value)
+  history.replaceState(null, '', `?${params}`)
+  const result = await multiSearch({
+    q: searchInput.value,
+    hitsPerPage: Number(hitsPerPageSelect.value),
+  })
+
+  searchResult = window.searchResult = result.hits
+
+  const elems = result.hits.map(formatResult)
+  cancelAnimationFrame(raf)
+  raf = requestAnimationFrame(() => {
+    hitCountElem.textContent = result.totalHits > 999 ? '999+' : result.totalHits
+    replace(hitsElem, elems)
+    selectResult(0)
+  })
+}
+
+hitsPerPageSelect.value = localStorage.hitsPerPage || params.get('s') ||'50'
+hitsPerPageSelect.oninput = search
+
+searchInput.value = localStorage.search || params.get('q') || ''
+searchInput.oninput = search
+
+// Result navigation:
+document.querySelector('style').innerHTML += `
+${[...Array(100).keys()]
+  .map(n => `#hits[data-selected="${n}"] > [data-n="${n}"]`)
+  .join(',\n')} {
+    background: #f3efef;
+  }`
+
+document.querySelector('style').innerHTML += `
+${[...Array(100).keys()]
+  .map(n => `#hits[data-selected="${n}"] > [data-n="${n}"] mark`)
+  .join(',\n')} {
+    background-color: #b6eff4;
+    color: #003961;
+  }`
+
+/* https://stackoverflow.com/questions/2541481/get-average-color-of-image-via-javascript */
+const getAvgColor = async src => new Promise((resolve, reject) => {
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.imageSmoothingEnabled = true
+  let img = new Image
+  img.src = src
+  img.crossOrigin = ""
+  img.onerror = reject
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, 1, 1)
+    resolve(ctx.getImageData(0, 0, 1, 1).data.slice(0,3))
+  }
+})
+
+let current = 0
+const tagsEl = document.getElementById('tags')
+const hashEl = document.getElementById('hash')
+const titleEl = document.getElementById('title')
+const coverEl = document.getElementById('cover')
+const magnetEl = document.getElementById('magnet')
+const categoriesEl = document.getElementById('categories')
+const descriptionEl = document.getElementById('description')
+const metaEl = document.getElementById('meta')
+const selectResult = idx => {
+  const selected = Math.max(0, Math.min(searchResult.length - 1, idx))
+  hitsElem.dataset.selected = selected
+  current = selected
+
+  const hit = searchResult[current]
+  const imgURL = hit.gr_thumbnail && !hit.gr_thumbnail.includes('nophoto')
+    ? hit.gr_thumbnail
+      .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
+    : hit.image
+      .replace('https://audiobb.unblockit.page/', 'https://audiobb.com/')
+      .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
+  if (imgURL === '/images/default_cover.jpg') {
+    coverEl.style.backgroundColor = 'grey'
+    coverEl.style.backgroundImage = ``
+  } else {
+    coverEl.style.backgroundImage = `url(${imgURL})`
+    getAvgColor(imgURL).then(([r,g,b]) => {
+      // const luminance = 0.2126*r + 0.7152*g + 0.0722*b
+      // hashEl.style.color = luminance > 120 ? 'black' : 'white'
+      coverEl.style.backgroundColor = `#${[
+        r.toString(16).padStart(2, '0'),
+        g.toString(16).padStart(2, '0'),
+        b.toString(16).padStart(2, '0'),
+      ].join('')}`
+    })
+  }
+
+  titleEl.textContent = firstIfArr(hit.gr_title || hit.name)
+  hashEl.textContent = hit.id
+  replace(descriptionEl, hl(hit._formatted.description))
+  replace(categoriesEl, hit.cat.map(wrapInLi))
+  replace(tagsEl, hit._formatted.tag.map(wrapInLi))
+  replace(metaEl, [
+    'creationDate',
+    'combinedFileSize',
+    'fileSize',
+    'encoding',
+    // 'magnet',
+    // 'author',
+    'narrator',
+    'datePublished',
+    // 'name',
+    // 'image',
+    // 'cat',
+    // 'tag',
+    // 'description',
+    // 'url',
+    'encodingFormat',
+    'bitrate',
+    // 'gr_title',
+    // 'gr_thumbnail',
+    // 'gr_authors',
+    // 'gr_year',
+    'gr_bookId',
+    'gr_workId',
+    'gr_ratingValue',
+    'gr_ratingCount',
+  ].filter(k => hit[k] != null && (!Array.isArray(hit[k]) || hit[k].length > 0))
+    .map(k => {
+      const keyEl = document.createElement('b')
+      const wrapperEl = document.createElement('span')
+      const isArr = Array.isArray(hit[k])
+      keyEl.append(k)
+      wrapperEl.classList.add(isArr ? 'array' : typeof hit[k], k, 'meta')
+      wrapperEl.append(keyEl, isArr ? hit[k].join(', ') : String(hit[k]))
+      return wrapperEl
+    }))
+}
+
+window.onkeydown = e => {
+  const { key } = e
+  const big = e.shiftKey ? 10 : 1
+  if (key === 'ArrowUp') {
+    e.preventDefault()
+    selectResult(current + (-1 * big))
+    return
+  }
+  if (key === 'ArrowDown') {
+    selectResult(current + (1 * big))
+    e.preventDefault()
+    return
+  }
+}
+
+window.onmousedown = window.onclick = e => {
+  console.log(e.target)
+  const link = e.target.closest('a')
+  if (link) return
+  const result = e.target.closest('.result')
+  const n = result.dataset.n
+  e.preventDefault()
+  selectResult(Number(n))
+}
+
+search()
+
+// TODO
+// add link to goodread if exist
+// add link to audiobookbay
+// add download button in big view (?)
+// show "more from this serie" if we have a serie found in goodread
+// encode links to description
+// cache images
+// make it look good somewhat
+</script>
+</html>
