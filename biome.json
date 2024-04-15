@@ -1,0 +1,28 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.4.0/schema.json",
+  "javascript": {
+    "formatter": {
+      "semicolons": "asNeeded",
+      "quoteStyle": "single",
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "formatter": {
+    "indentStyle": "space"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "suspicious": {
+        "noAssignInExpressions": "off"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "off"
+      },
+      "style": {
+        "useSingleVarDeclarator": "off",
+        "noUnusedTemplateLiteral": "off"
+      }
+    }
+  }
+}

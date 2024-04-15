@@ -23,6 +23,7 @@ const syncBooks = async () => {
   let i = 0
   let total = 0
   let scanned = 0
+  let emptyPages = 0
   const tasks = []
   while (++i < 500) {
     const newBooks = []
@@ -40,7 +41,8 @@ const syncBooks = async () => {
       newBooks.push(book)
       queue.push(book)
     }
-    if (!newBooks.length) break
+    emptyPages += !newBooks.length
+    if (emptyPages > 2) break
     tasks.push(await addDocuments(newBooks))
     total += newBooks.length
   }
