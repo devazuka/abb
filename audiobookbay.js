@@ -1,8 +1,8 @@
-import { getDom, parseDom, toNormalizedText, toText, findHref } from './lib.js'
+import { getDom, parseDom, toNormalizedText, toText, findHref, throttle } from './lib.js'
 
 // TODO: update to https://audiobookbay.lu (need to update in database too)
 export const ABBDomain = 'https://audiobookbay.is'
-export const getABBDom = getDom(ABBDomain)
+export const getABBDom = throttle(getDom(ABBDomain), 45*1000)
 
 const isAudiobookAttribute = el => {
   if (!el.parentElement) return

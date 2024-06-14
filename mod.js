@@ -19,37 +19,48 @@ setInterval(async () => {
   }
 }, 60*1000)
 
-const syncBooks = async () => {
-  let i = 0
+let pendingSync
+const syncBooks = async ({ maxPages = 3, startAt = 0, step = 1 } = {}) => {
+  let i = startAt
   let total = 0
   let scanned = 0
   let emptyPages = 0
   const tasks = []
-  while (++i < 500) {
-    const newBooks = []
-    const bs = await getABBPageResults(i)
-    scanned += bs.length
-    for (const b of bs) {
-      if (await documentExists(b.key)) continue
-      const book = await getABB(b.key)
-      const current = await meli(
-        `/indexes/audiobooks/documents/${book.id}`,
-      ).catch(err => err)
-      if (current.code !== 404) continue
-      const gr = await loadGoodReadsData(book.name)
-      Object.assign(book, gr[0])
-      newBooks.push(book)
-      queue.push(book)
+  while ((i+=step) > 0) {
+    let newBooks
+    while (true) {
+      try {
+        newBooks = []
+        const bs = await getABBPageResults(i)
+        scanned += bs.length
+        for (const b of bs) {
+          if (await documentExists(b.key)) continue
+          const book = await getABB(b.key)
+          const pageUrl = `/indexes/audiobooks/documents/${book.id}`
+          const current = await meli(pageUrl).catch(err => err)
+          if (current.code !== 404) continue
+          const gr = await loadGoodReadsData(book.name).catch(err => ({}))
+          Object.assign(book, gr[0])
+          newBooks.push(book)
+          queue.push(book)
+        }
+        break
+      } catch (err) {
+        console.log(err)
+        console.log('retry...')
+      }
     }
     emptyPages += !newBooks.length
-    if (emptyPages > 2) break
+    if (emptyPages > maxPages) break
     tasks.push(await addDocuments(newBooks))
     total += newBooks.length
   }
   console.log(`total books added: ${total}/${scanned}`, total)
   console.log(await Promise.all(tasks.map(r => showTaskResult(r.taskUid))))
+  pendingSync = undefined
 }
 
-setInterval(syncBooks, 1000 * 60 * 60)
+setInterval(() => pendingSync || syncBooks(), 1000 * 60 * 60)
+setInterval(() => pendingSync = Promise.resolve(pendingSync).then(() => syncBooks({ maxPages: 300 })), 1000 * 60 * 60 * 24)
 syncBooks()
 startServer()

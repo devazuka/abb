@@ -3,6 +3,22 @@ import { DOMParser } from 'https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm.ts
 import { encodeBase58 } from 'https://deno.land/std@0.209.0/encoding/base58.ts'
 import ua from 'npm:random-useragent'
 
+export const throttle = (fn, delay) => {
+  const dot = new TextEncoder().encode('.')
+  const wait = async () => {
+    const interval = setInterval(() => Deno.writeAllSync(Deno.stdout, dot), 1000)
+    await new Promise(s => setTimeout(s, delay))
+    console.log('\n')
+    clearInterval(interval)
+  }
+  let lastExecution = wait()
+  return async (...args) => {
+    const result = lastExecution.then(() => fn(...args))
+    lastExecution = result.then(wait, wait)
+    return result
+  }
+}
+
 export const parseDom = text =>
   new DOMParser().parseFromString(text, 'text/html')
 
