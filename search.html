@@ -123,6 +123,12 @@ mark {
   flex-shrink: 0;
 }
 
+#cover > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 code {
   text-transform: uppercase;
   color: grey;
@@ -307,6 +313,7 @@ const multiSearch = async query => {
   const res = await fetch('/search', {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...searchConfig, ...query }),
+    redirect: 'follow',
     method: 'POST',
     mode: 'cors',
     credentials: 'omit',
@@ -352,8 +359,11 @@ const fmtMagnet = (link, name) => {
 const tmpl = id => document.getElementById(id).content.firstElementChild
 const resultTemplate = tmpl('result')
 
+const clear = (el) => {
+  while (el.firstChild) el.firstChild.remove()  
+}
 const replace = (el, content) => {
-  while (el.firstChild) el.firstChild.remove()
+  clear(el)
   el.append(...content)
 }
 
@@ -382,11 +392,6 @@ const formatResult = (hit, n) => {
   return el
 }
 
-const hitsElem = document.getElementById('hits')
-const searchInput = document.getElementById('search')
-const hitCountElem = document.getElementById('hit-count')
-const hitsPerPageSelect = document.getElementById('hits-per-page')
-const params = new URL(location).searchParams
 let raf
 let searchResult = []
 const search = async () => {
@@ -398,7 +403,7 @@ const search = async () => {
     hitsPerPage: Number(hitsPerPageSelect.value),
   })
 
-  searchResult = window.searchResult = result.hits
+  searchResult = result.hits
 
   const elems = result.hits.map(formatResult)
   cancelAnimationFrame(raf)
@@ -409,10 +414,16 @@ const search = async () => {
   })
 }
 
-hitsPerPageSelect.value = localStorage.hitsPerPage || params.get('s') ||'50'
+const hitsElem = document.getElementById('hits')
+const searchInput = document.getElementById('search')
+const hitCountElem = document.getElementById('hit-count')
+const hitsPerPageSelect = document.getElementById('hits-per-page')
+const params = new URL(location).searchParams
+
+hitsPerPageSelect.value = params.get('s') || localStorage.hitsPerPage ||'50'
 hitsPerPageSelect.oninput = search
 
-searchInput.value = localStorage.search || params.get('q') || ''
+searchInput.value = params.get('q') || localStorage.search || ''
 searchInput.oninput = search
 
 // Result navigation:
@@ -432,18 +443,24 @@ ${[...Array(100).keys()]
   }`
 
 /* https://stackoverflow.com/questions/2541481/get-average-color-of-image-via-javascript */
-const getAvgColor = async src => new Promise((resolve, reject) => {
-  const ctx = document.createElement('canvas').getContext('2d');
+const imageCache = {}
+const getImageWithColor = async (src, hit) => imageCache[src] || (imageCache[src] = new Promise((resolve, reject) => {
+  const ctx = document.createElement('canvas').getContext('2d')
   ctx.imageSmoothingEnabled = true
   let img = new Image
   img.src = src
   img.crossOrigin = ""
-  img.onerror = reject
+  img.onerror = (event) => {
+    const proxySrc = `/img?id=${hit.id}`
+    if (src === proxySrc) return reject(Error('Unable to load Image'))
+    // if we fail, let's try to ask the server to get the image for us
+    getImageWithColor(proxySrc, hit).then(resolve, reject)
+  }
   img.onload = () => {
     ctx.drawImage(img, 0, 0, 1, 1)
-    resolve(ctx.getImageData(0, 0, 1, 1).data.slice(0,3))
+    resolve({ color: ctx.getImageData(0, 0, 1, 1).data.slice(0,3), img })
   }
-})
+}))
 
 let current = 0
 const tagsEl = document.getElementById('tags')
@@ -460,20 +477,20 @@ const selectResult = idx => {
   current = selected
 
   const hit = searchResult[current]
+  clear(coverEl)
+  coverEl.style.backgroundColor = 'grey'
+
   const imgURL = hit.gr_thumbnail && !hit.gr_thumbnail.includes('nophoto')
     ? hit.gr_thumbnail
       .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
     : hit.image
       .replace('https://audiobb.unblockit.page/', 'https://audiobb.com/')
       .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
-  if (imgURL === '/images/default_cover.jpg') {
-    coverEl.style.backgroundColor = 'grey'
-    coverEl.style.backgroundImage = ``
-  } else {
-    coverEl.style.backgroundImage = `url(${imgURL})`
-    getAvgColor(imgURL).then(([r,g,b]) => {
-      // const luminance = 0.2126*r + 0.7152*g + 0.0722*b
-      // hashEl.style.color = luminance > 120 ? 'black' : 'white'
+  if (imgURL !== '/images/default_cover.jpg') {
+    getImageWithColor(imgURL, hit).then(({ color, img }) => {
+      if (selected !== current) return
+      coverEl.append(img)
+      const [r,g,b] = color
       coverEl.style.backgroundColor = `#${[
         r.toString(16).padStart(2, '0'),
         g.toString(16).padStart(2, '0'),
@@ -540,10 +557,10 @@ window.onkeydown = e => {
 }
 
 window.onmousedown = window.onclick = e => {
-  console.log(e.target)
   const link = e.target.closest('a')
   if (link) return
   const result = e.target.closest('.result')
+  if (!result) return
   const n = result.dataset.n
   e.preventDefault()
   selectResult(Number(n))

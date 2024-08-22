@@ -1,4 +1,5 @@
-import { getDom, parseDom, toNormalizedText } from './lib.js'
+import { getDom, parseDom, toNormalizedText, makeQueue } from './lib.js'
+import { updateBook } from './meli.js'
 
 let getAADom = getDom('http://annas-archive.org')
 
@@ -10,14 +11,15 @@ const isDiv = node => node.tagName === 'DIV'
 const notScript = node => node.tagName !== 'SCRIPT'
 const isComment = node => node.nodeName === '#comment'
 export const searchAA = async (query, index) => {
-  const dom = await getAADom(`/search?${new URLSearchParams([
-    ['q', query],
-    ['index', index || ''],
-    ['content', 'book_nonfiction'],
-    ['content', 'book_fiction'],
-    ['content', 'book_unknown'],
-  ])}`)
-
+  const dom = await getAADom(
+    `/search?${new URLSearchParams([
+      ['q', query],
+      ['index', index || ''],
+      ['content', 'book_nonfiction'],
+      ['content', 'book_fiction'],
+      ['content', 'book_unknown'],
+    ])}`,
+  )
 
   const [resultWrapper] = dom.getElementsByClassName('min-w-[0] w-full')
   const resultContainer = [...resultWrapper.children].find(notScript)
@@ -38,7 +40,9 @@ export const searchAA = async (query, index) => {
     }
     const [title] = link.getElementsByTagName('h3')
     const [img] = link.getElementsByTagName('img')
-    const [file, edition, authors] = [...title.parentElement.children].filter(isDiv).map(toNormalizedText)
+    const [file, edition, authors] = [...title.parentElement.children]
+      .filter(isDiv)
+      .map(toNormalizedText)
     results.push({
       aa_type: index || 'file',
       aa_match: match,
@@ -52,3 +56,13 @@ export const searchAA = async (query, index) => {
   }
   return results
 }
+
+export const queueAA = makeQueue(async book => {
+  const aa = await searchAA(book.name)
+  return updateBook(book.id, { ...aa[0], aa_updatedAt: Date.now() })
+}, 'aa_updatedAt')
+
+export const queueGR = makeQueue(async book => {
+  const gr = await loadGoodReadsData(book.name)
+  return updateBook(book.id, {...gr[0], gr_updatedAt: Date.now() })
+}, 'gr_updatedAt')

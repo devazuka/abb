@@ -1,8 +1,17 @@
-import { getDom, parseDom, toNormalizedText, toText, findHref, throttle } from './lib.js'
+import {
+  getDom,
+  parseDom,
+  toNormalizedText,
+  toText,
+  findHref,
+  throttle,
+} from './lib.js'
 
 // TODO: update to https://audiobookbay.lu (need to update in database too)
-export const ABBDomain = 'https://audiobookbay.is'
-export const getABBDom = throttle(getDom(ABBDomain), 45*1000)
+const ipResponse = await fetch('http://185.247.224.117', { redirect: 'manual' })
+export const ABBOrigin = ipResponse.headers.get('location') || 'http://185.247.224.117'
+console.log({ ABBOrigin })
+export const getABBDom = throttle(getDom(ABBOrigin), 45 * 1000)
 
 const isAudiobookAttribute = el => {
   if (!el.parentElement) return
@@ -16,11 +25,12 @@ const getValue = (key, el) => {
   if (content) return [key, content]
   if (el.tagName === 'IMG') return [key, el.getAttribute('src')]
   if (key === 'author') return [el.className, toNormalizedText(el)]
-  if (key === 'description')
+  if (key === 'description') {
     return [
       key,
       [...el.querySelectorAll('p')].slice(1).map(toNormalizedText).join('\n'),
     ]
+  }
   return [key, toNormalizedText(el)]
 }
 
@@ -32,10 +42,10 @@ const blackListedKeys = new Set([
 ])
 
 const blackListedInfos = new Set([
-  "Announce URL",
-  "This Torrent also has several backup trackers",
-  "This is a Multifile Torrent",
-  "AD"
+  'Announce URL',
+  'This Torrent also has several backup trackers',
+  'This is a Multifile Torrent',
+  'AD',
 ])
 
 const push = (data, k, v) => {
@@ -78,22 +88,27 @@ export const getABB = async key => {
   }
 
   const postInfo = dom.querySelector('.postInfo')
-  schemas.cat = [...postInfo.querySelectorAll('[rel="category tag"]')]
-    .map(toNormalizedText)
+  schemas.cat = [...postInfo.querySelectorAll('[rel="category tag"]')].map(
+    toNormalizedText,
+  )
 
   schemas.tag = [...postInfo.querySelectorAll('a')]
     .filter(a => a.getAttribute('href').includes('/tag/'))
     .map(toNormalizedText)
 
-  const [descriptionBlock, ...textBlocks] = dom.querySelector('[itemprop="description"]')?.children || []
+  const [descriptionBlock, ...textBlocks] =
+    dom.querySelector('[itemprop="description"]')?.children || []
   if (descriptionBlock) {
     for (const span of descriptionBlock.querySelectorAll('span')) {
       push(schemas, span.attributes.class, span.textContent)
     }
     // Extract description text
     schemas.description = textBlocks.map(toNormalizedText)
-  } else { // Legacy parsing
-    const [descriptionBlock, ...textBlocks] = [...dom.querySelectorAll('.postContent p')].slice(3)
+  } else {
+    // Legacy parsing
+    const [descriptionBlock, ...textBlocks] = [
+      ...dom.querySelectorAll('.postContent p'),
+    ].slice(3)
     const content = descriptionBlock?.textContent || ''
     for (const line of content.split('\n')) {
       push(schemas, 'info', line)
@@ -118,16 +133,18 @@ export const getABB = async key => {
     const k = `${kk[0].toLowerCase()}${kk.slice(1, -1).replaceAll(' ', '')}`
     torrentInfo[k] = toText(value)
   }
-  torrentInfo.magnet = `magnet:?xt=urn:btih:${torrentInfo.infoHash}&${new URLSearchParams([
-    ['dn', decodeURIComponent(key)],
-    ...torrentInfo.tracker.map(t => ['tr', t]),
-  ])}`
+  torrentInfo.magnet = `magnet:?xt=urn:btih:${torrentInfo.infoHash}&${new URLSearchParams(
+    [
+      ['dn', decodeURIComponent(key)],
+      ...torrentInfo.tracker.map(t => ['tr', t]),
+    ],
+  )}`
 
   return {
     id: torrentInfo.infoHash,
     ...torrentInfo,
     ...schemas,
-    url: `${ABBDomain}/abss/${key}/`,
+    url: `${ABBOrigin}/abss/${key}/`,
     slug: key,
   }
 }
@@ -172,7 +189,7 @@ export const getABBPageResults = async page => {
         const decoded = atob(el.innerHTML)
         return parse(parseDom(decoded))
       } catch (err) {
-        console.log('HTML:', err, el.innerHTML)
+        console.log('HTML:', err)
         return {}
       }
     }

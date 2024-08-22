@@ -1,4 +1,5 @@
-import { toNormalizedText, getDom } from './lib.js'
+import { toNormalizedText, getDom, makeQueue } from './lib.js'
+import { updateBook } from './meli.js'
 
 const getGRDom = getDom('https://www.goodreads.com')
 
@@ -90,3 +91,8 @@ export const loadGoodReadsData = async q => {
     }
   })
 }
+
+export const queueGR = makeQueue(async book => {
+  const gr = await loadGoodReadsData(book.name)
+  return updateBook(book.id, {...gr[0], gr_updatedAt: Date.now() })
+}, 'gr_updatedAt', { delay: 20*1000 })

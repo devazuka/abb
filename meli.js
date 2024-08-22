@@ -1,28 +1,35 @@
-const meliUrl = Deno.env.get('MELI_URL').replace(/\/$/, '')
-const key = Deno.env.get('MELI_KEY')
+import { logReq } from './lib.js'
+
+const meiliUrl = Deno.env.get('MEILI_URL').replace(/\/$/, '')
+const key = Deno.env.get('MEILI_MASTER_KEY')
 const Authorization = key && `Bearer ${key}`
 const defaultHeaders = Authorization
   ? { 'Content-Type': 'application/json', Authorization }
   : { 'Content-Type': 'application/json' }
 
 export const meliProxySearch = request =>
-  fetch(`${meliUrl}/indexes/audiobooks/search`, request)
+  fetch(`${meiliUrl}/indexes/audiobooks/search`, request)
 
-const waitForTaskToEnd = async (taskUid) => {
+const wait500ms = s => setTimeout(s, 500)
+const waitForTaskToEnd = async taskUid => {
   do {
-    // need to be var because do/while scope lol
+    // var hoisting allow us to return it outside of the do / while
+    await new Promise(wait500ms)
     var task = await meli(`/tasks/${taskUid}`)
   } while (task.status === 'enqueued' || task.status === 'processing')
   return task
 }
 
+const { origin, hostname } = new URL(meiliUrl)
+const log = (...args) => logReq(hostname, ...args)
 export const meli = async (path, data, method) => {
-  const res = await fetch(`${meliUrl}${path}`, {
-    method: method || (data ? 'POST' : 'GET'),
+  method = method || (data ? 'POST' : 'GET')
+  const res = await fetch(`${meiliUrl}${path}`, {
+    method,
     headers: defaultHeaders,
     body: data && JSON.stringify(data),
   })
-
+  log(res.status, path, method)
   if (res.status === 204) return
   if (!res.ok) {
     const body = await res.text()
@@ -38,7 +45,7 @@ export const meli = async (path, data, method) => {
 }
 
 // request.taskUid
-export const showTaskResult = async (taskUid) => {
+export const showTaskResult = async taskUid => {
   const result = await waitForTaskToEnd(taskUid)
   if (result.status === 'failed') {
     const err = Error(result.error.message)
@@ -50,6 +57,7 @@ export const showTaskResult = async (taskUid) => {
   return
 }
 
+export const getDocument = id => meli(`/indexes/audiobooks/documents/${id}`)
 export const addDocuments = documents =>
   meli('/indexes/audiobooks/documents', documents, 'PUT')
 
@@ -60,5 +68,23 @@ export const documentExists = async key => {
     q: url,
     limit: 1,
   })
-  return result?.hits?.[0]?.url === url
+  const hit = result?.hits?.[0]
+  return hit?.url === url && hit
 }
+
+// TODO: update book buffer that olds books to update and mass apply changes
+// every minutes or something
+export const updateBook = async (bookId, data, tries = 0) => {
+  try {
+    // exponnential backoff
+    await new Promise(s => setTimeout(s, tries ** tries * 50))
+    const book = Object.assign(await getDocument(bookId), data)
+    const { taskUid } = await addDocuments([book])
+    await showTaskResult(taskUid)
+    return book
+  } catch {
+    return updateBook(bookId, data, tries + 1)
+  }
+}
+
+// await updateBook('c0a84cf1e56f7179bdb9a3c9d18d71e79ce3e759')

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-/root/.deno/bin/deno run -A mod.js
+/root/.deno/bin/deno serve -A server.js
