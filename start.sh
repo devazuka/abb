@@ -1,3 +1,3 @@
 #!/bin/sh
 
-/root/.deno/bin/deno serve -A server.js
+/root/.deno/bin/deno serve -A --port $PORT server.js
