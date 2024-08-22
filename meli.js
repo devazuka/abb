@@ -7,10 +7,19 @@ const defaultHeaders = Authorization
   ? { 'Content-Type': 'application/json', Authorization }
   : { 'Content-Type': 'application/json' }
 
-export const meliProxySearch = request =>
-  fetch(`${meiliUrl}/indexes/audiobooks/search`, request)
+export const meliProxySearch = request => {
+  const headers = new Headers(request.headers)
+  Authorization && headers.set('Authorization', Authorization)
 
-const wait500ms = s => setTimeout(s, 500)
+  return fetch(`${meiliUrl}/indexes/audiobooks/search`, {
+    method: request.method,
+    headers,
+    body: request.body,
+    redirect: 'manual',
+  })
+}
+
+const wait500ms = s => setTimeout(s, 1000)
 const waitForTaskToEnd = async taskUid => {
   do {
     // var hoisting allow us to return it outside of the do / while
@@ -29,7 +38,7 @@ export const meli = async (path, data, method) => {
     headers: defaultHeaders,
     body: data && JSON.stringify(data),
   })
-  log(res.status, path, method)
+  path.includes('/tasks/') || log(res.status, path, method)
   if (res.status === 204) return
   if (!res.ok) {
     const body = await res.text()
