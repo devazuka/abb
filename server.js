@@ -1,4 +1,4 @@
-import { meliProxySearch } from './meli.js'
+import { meliProxySearch } from './meili.js'
 import { proxyImage } from './image-proxy.js'
 
 const PAGE_NOT_FOUND = new Response('Page not found: Error 404', {

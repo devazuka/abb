@@ -206,6 +206,40 @@ code {
   border: 0;
 }
 
+#attribute-selection input[type="checkbox"] {
+  opacity: 0;
+  width: 1px;
+  position: fixed;
+  top: -1px;
+}
+
+#attribute-selection input:checked + label {
+  border: 1px solid black;
+}
+
+#attribute-selection label:hover {
+  border: 1px solid red;
+}
+
+#attribute-selection {
+  display: flex;
+  align-items: center;
+  margin: 0 6px 6px;
+  background: #ffb9ff;
+  padding: 6px 12px 6px 6px;
+  border-radius: 9px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+#attribute-selection label {
+  border: 1px solid transparent;
+  user-select: none;
+  padding: 0px 2px 2px 2px;
+  border-radius: 6px;
+  background: #fff6;
+}
+
 #panels { display: flex }
 @media (width <= 1250px) {
   #panels { flex-direction: column }
@@ -223,6 +257,78 @@ code {
     overflow-y: scroll;
   }
 }
+
+#links li {
+  list-style: none;
+  margin: 0;
+}
+#links {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0;
+}
+
+#links a {
+  display: flex;
+  user-select: none;
+  align-items: center;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+#links a .wrap > i {
+  color: grey;
+  font-variant: all-small-caps;
+  line-height: 8px;
+  padding-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+}
+#links a .wrap > b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#links a .wrap {
+  display: flex;
+  flex-direction: column;
+  padding: 0 5px;
+}
+
+#links a:not(:has(.wrap)) {
+  display: none;
+}
+
+
+#goodreads::before {
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAElBMVEXv7Nzq5s7m4cTDsJKSbEF0Qg96uNKGAAABSklEQVR42u2UUY4CMQxDYyfv/lderdq0FMQM2i8+1h0pIfZrRiAR//qrsn6V/jROqxxRkHElF0BVFYBvAQOMl1ECvgFUgPc26gZIwA88cAno2c4bIIE4VNdAvbh5DQA+BnIDt2/UugMqnlTfAOj36XIAbaxjoKddgHzITKtTgEOxHoWB7MEeh0ZTw91HeWzovAaiSCjF4+EAtIiRt4E8FxyTXboW4D1KqAGsdLddYQbm/VmQ0vS1o/3ZAJWWnAXl3rBfaKgZu9gqa23YwVNWNlIpDeC89FU5JJ+A3gIh2x49nwCWPDsDeg9kVelQ3gCA9xJLQPU+D8DraPiz93FDzxwrbdlOINu3cy7ogNwb+rjm9+/1g3S4gdXOUuy/+5m3LbcfnlKXLLaqb1p+NOllKLOG0pKn2o9G29ntSPeKHsaZk99LDXysbwV+AGygC78g0GAAAAAAAElFTkSuQmCC");
+}
+
+#audiobookbay::before {
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAJFBMVEVQmpdFiYXWHBwuiITaEhIqhYHYDg4mg3/YDQ3ZBwcigHzZAQJf2kF6AAAAC3RSTlMCI1lch5Sdyc30+XU1H18AAADcSURBVHjapZPRFoQgCEQZESn6///dFbZDZeXDzsOchOugp6IUWNS+UmHQKLCaK5gBiXZK+bxd9mwAHLAi++gV4dOGILKvPIxMQvI5hazytZ/7JAYM/ZyMCGC6FTwC2v1eYopjQKm1FreM4E71x1IK6rZtzc2XHiEUE+q6rq201oqbL/18SjGhLMsSZbe+rDGD4ipeOSTsgJ6ATHgA8pBHQB3wclrr9gPERHAPQMSU2MyeAO1XxASYJQjpO2Bk/wLzETI7JPQVABG/ARz/CCjfdBpBmVyIL6pezBv0Aad+E/I5w7NJAAAAAElFTkSuQmCC");
+}
+
+#magnet::before,
+#goodreads::before,
+#annasarchive::before,
+#audiobookbay::before {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin: 6px;
+  content: ' ';
+  background-size: cover;
+}
+
+#magnet::before { content: '🧲' }
+#annasarchive::before { content: '📚' }
+
 
 </style>
 <body>
@@ -246,6 +352,7 @@ code {
         </label>
       <span>hits: <span id="hit-count">0</span></span>
       </div>
+      <div id="attribute-selection"></div>
       <div id="hits"></div>
     </div>
     <div id="selection-panel">
@@ -255,9 +362,15 @@ code {
       <ul id="categories"></ul>
       <div id="description"></div>
       <hr>
+      <ul id="links">
+        <li><a id="magnet"       href="#"></a></li>
+        <li><a id="audiobookbay" href="#"></a></li>
+        <li><a id="annasarchive" href="#"></a></li>
+        <li><a id="goodreads"    href="#"></a></li>
+      </ul>
+      <hr>
       <div id="meta"></div>
       <ul id="tags"></ul>
-      <a id="magnet" href=""></a>
     </div>
   </div>
 </body>
@@ -268,11 +381,62 @@ code {
 // - debounce
 // - paging and navigation
 // - cache hits?
-const attrs = ['name', 'description', 'author', 'narrator', 'tag', 'gr_title', 'gr_authors']
+const allAttrs = [
+  'id',
+  'creationDate',
+  'combinedFileSize',
+  'fileSize',
+  'encoding',
+  'magnet',
+  'author',
+  'narrator',
+  'datePublished',
+  'name',
+  'image',
+  'cat',
+  'tag',
+  'description',
+  'url',
+  'encodingFormat',
+  'bitrate',
+  'infoHash',
+  'comment',
+  'inLanguage',
+
+  'gr_title',
+  'gr_thumbnail',
+  'gr_authors',
+  'gr_year',
+  'gr_bookId',
+  'gr_workId',
+  'gr_ratingValue',
+  'gr_ratingCount',
+
+  'aa_type',
+  'aa_match',
+  'aa_title',
+  'aa_href',
+  'aa_poster',
+  'aa_file',
+  'aa_edition',
+  'aa_authors',
+]
+
+const searchableAttrs = ['infoHash', 'author', 'narrator', 'name', 'tag', 'description', 'gr_bookId']
+const linkedAttrs = {
+  author: ['aa_authors', 'gr_authors'],
+  name: ['gr_title', 'aa_title'],
+}
+
+const defaultAttrsSelection = [
+  'name', 'description', 'author', 'narrator', 'tag',
+  'gr_title', 'gr_authors', 'aa_authors', 'aa_title',
+]
+
+
+// TODO: manage dates https://www.meilisearch.com/docs/learn/filtering_and_sorting/working_with_dates
 const searchConfig = {
   facets: ['cat'],
-  attributesToSearchOn: attrs,
-  attributesToHighlight: attrs,
   attributesToRetrieve: [
     'id',
     'creationDate',
@@ -291,6 +455,8 @@ const searchConfig = {
     'url',
     'encodingFormat',
     'bitrate',
+    'slug',
+
     'gr_title',
     'gr_thumbnail',
     'gr_authors',
@@ -299,6 +465,15 @@ const searchConfig = {
     'gr_workId',
     'gr_ratingValue',
     'gr_ratingCount',
+
+    'aa_type',
+    'aa_match',
+    'aa_title',
+    'aa_href',
+    'aa_poster',
+    'aa_file',
+    'aa_edition',
+    'aa_authors',
   ],
   highlightPreTag: '[[',
   highlightPostTag: ']]',
@@ -307,6 +482,7 @@ const searchConfig = {
 
 const queryCache = new Map()
 const multiSearch = async query => {
+  // TODO: get the selected attrs here
   const key = JSON.stringify(query)
   const cached = queryCache.get(key)
   if (cached) return cached
@@ -344,10 +520,10 @@ const wrapInP = text => wrap('p', text)
 
 const hl = str => Array.isArray(str)
   ? str.map(wrapInP)
-  : str
-      .replace(/\]\][ _.,;'"-]*\[\[/g, ' ')
+  : (str
+      ?.replace(/\]\][ _.,;'"-]*\[\[/g, ' ')
       .split(/\[\[(.+?)\]\]/g)
-      .map(wrapOddMatches)
+      .map(wrapOddMatches) || '')
 
 const fmtMagnet = (link, name) => {
   const url = new URL(link.replace(/^magnet:xt/, 'magnet:?xt'))
@@ -362,7 +538,7 @@ const resultTemplate = tmpl('result')
 const clear = (el) => {
   while (el.firstChild) el.firstChild.remove()  
 }
-const replace = (el, content) => {
+const replace = (el, content = []) => {
   clear(el)
   el.append(...content)
 }
@@ -395,11 +571,19 @@ const formatResult = (hit, n) => {
 let raf
 let searchResult = []
 const search = async () => {
+  const selectedAttrs = attrsElements
+    .filter(attr => attr.checkbox.checked)
+    .map(attr => attr.name)
+  const activeAttrs = selectedAttrs.length ? selectedAttrs : defaultAttrsSelection
+
   params.set('q', localStorage.search = searchInput.value)
   params.set('s', localStorage.hitsPerPage = hitsPerPageSelect.value)
+  params.set('a', localStorage.attrs = selectedAttrs.join(' '))
   history.replaceState(null, '', `?${params}`)
   const result = await multiSearch({
     q: searchInput.value,
+    attributesToSearchOn: activeAttrs,
+    attributesToHighlight: activeAttrs,
     hitsPerPage: Number(hitsPerPageSelect.value),
   })
 
@@ -425,6 +609,22 @@ hitsPerPageSelect.oninput = search
 
 searchInput.value = params.get('q') || localStorage.search || ''
 searchInput.oninput = search
+
+
+const initialAttrsSelected = (params.get('a') || localStorage.attrs || '').split('+')
+  .filter(attr => allAttrs.includes(attr))
+
+const attrsElements = [...new Set([...initialAttrsSelected, ...searchableAttrs])].map(attr => {
+  const label = document.createElement('label')
+  const checkbox = document.createElement('input')
+  checkbox.type = 'checkbox'
+  checkbox.id = attr
+  checkbox.name = attr
+  checkbox.checked = initialAttrsSelected.includes(attr)
+  label.htmlFor = attr
+  label.append(attr.replace('_', ':'))
+  return { label, checkbox, name: attr }
+})
 
 // Result navigation:
 document.querySelector('style').innerHTML += `
@@ -467,50 +667,101 @@ const tagsEl = document.getElementById('tags')
 const hashEl = document.getElementById('hash')
 const titleEl = document.getElementById('title')
 const coverEl = document.getElementById('cover')
-const magnetEl = document.getElementById('magnet')
 const categoriesEl = document.getElementById('categories')
 const descriptionEl = document.getElementById('description')
+const attributeSelectionEl = document.getElementById('attribute-selection')
+
+// links
+const magnetEl = document.getElementById('magnet')
+const goodreadsEl = document.getElementById('goodreads')
+const audiobookbayEl = document.getElementById('audiobookbay')
+const annasarchiveEl = document.getElementById('annasarchive')
+
+replace(attributeSelectionEl, attrsElements.flatMap(attr => [attr.checkbox, attr.label]))
+
 const metaEl = document.getElementById('meta')
+const updateLink = (linkEl, { title, subtitle, href }) => {
+  clear(linkEl)
+  if (!subtitle) return
+  const textEl = document.createElement('div')
+  const titleEl = document.createElement('b')
+  const subtitleEl = document.createElement('i')
+  textEl.className = 'wrap'
+  titleEl.append(title)
+  subtitleEl.append(subtitle)
+  linkEl.href = href
+  textEl.append(titleEl, subtitleEl)
+  linkEl.append(textEl)
+}
+
 const selectResult = idx => {
   const selected = Math.max(0, Math.min(searchResult.length - 1, idx))
   hitsElem.dataset.selected = selected
   current = selected
 
-  const hit = searchResult[current]
+  const hit = searchResult[current] || {}
   clear(coverEl)
   coverEl.style.backgroundColor = 'grey'
 
-  const imgURL = hit.gr_thumbnail && !hit.gr_thumbnail.includes('nophoto')
-    ? hit.gr_thumbnail
-      .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
-    : hit.image
-      .replace('https://audiobb.unblockit.page/', 'https://audiobb.com/')
-      .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
-  if (imgURL !== '/images/default_cover.jpg') {
-    getImageWithColor(imgURL, hit).then(({ color, img }) => {
-      if (selected !== current) return
-      coverEl.append(img)
-      const [r,g,b] = color
-      coverEl.style.backgroundColor = `#${[
-        r.toString(16).padStart(2, '0'),
-        g.toString(16).padStart(2, '0'),
-        b.toString(16).padStart(2, '0'),
-      ].join('')}`
-    })
+  if (hit.image || hit.gr_thumbnail) {
+    // TODO: add support for hit.aa_poster
+    const imgURL = hit.gr_thumbnail && !hit.gr_thumbnail.includes('nophoto')
+      ? hit.gr_thumbnail
+        .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
+      : hit.image
+        .replace('https://audiobb.unblockit.page/', 'https://audiobb.com/')
+        .replace(/_[SU][YX][0-9]+(_[SU][YX][0-9]+)?_/g, '_SY640_')
+    if (imgURL !== '/images/default_cover.jpg') {
+      getImageWithColor(imgURL, hit).then(({ color, img }) => {
+        if (selected !== current) return
+        coverEl.append(img)
+        const [r,g,b] = color
+        coverEl.style.backgroundColor = `#${[
+          r.toString(16).padStart(2, '0'),
+          g.toString(16).padStart(2, '0'),
+          b.toString(16).padStart(2, '0'),
+        ].join('')}`
+      })
+    }
   }
+
+  updateLink(magnetEl, {
+    href: fmtMagnet(hit.magnet, hit.name),
+    title: 'Download Torrent',
+    subtitle: `${hit.combinedFileSize || hit.fileSize}${hit.bitrate ? ` (${hit.bitrate})`:''}`,
+  })
+
+  updateLink(audiobookbayEl, {
+    href: `https://audiobookbay.lu/abss/${hit.slug}`,
+    title: 'AudioBookBay',
+    subtitle: hit.slug,
+  })
+
+  updateLink(goodreadsEl, {
+    href: `https://www.goodreads.com/book/show/${hit.gr_bookId}`,
+    title: 'Goodreads',
+    subtitle: hit.gr_bookId && `${hit.gr_bookId} ${hit.gr_title}`,
+  })
+
+  const [lang, type, size, cat, filename] = hit.aa_file?.split(', ') || []
+  lang && updateLink(annasarchiveEl, {
+    href: `https://annas-archive.org/${hit.aa_href}`,
+    title: `Anna's Archive`,
+    subtitle: hit.aa_file,
+  })
 
   titleEl.textContent = firstIfArr(hit.gr_title || hit.name)
   hashEl.textContent = hit.id
-  replace(descriptionEl, hl(hit._formatted.description))
-  replace(categoriesEl, hit.cat.map(wrapInLi))
-  replace(tagsEl, hit._formatted.tag.map(wrapInLi))
+  replace(descriptionEl, hl(hit._formatted?.description))
+  replace(categoriesEl, hit.cat?.map(wrapInLi))
+  replace(tagsEl, hit._formatted?.tag?.map(wrapInLi))
   replace(metaEl, [
     'creationDate',
     'combinedFileSize',
     'fileSize',
     'encoding',
     // 'magnet',
-    // 'author',
+    'author',
     'narrator',
     'datePublished',
     // 'name',
@@ -529,6 +780,8 @@ const selectResult = idx => {
     'gr_workId',
     'gr_ratingValue',
     'gr_ratingCount',
+    'aa_edition',
+    'aa_authors',
   ].filter(k => hit[k] != null && (!Array.isArray(hit[k]) || hit[k].length > 0))
     .map(k => {
       const keyEl = document.createElement('b')

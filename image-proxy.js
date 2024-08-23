@@ -1,4 +1,4 @@
-import { getDocument } from './meli.js'
+import { getDocument } from './meili.js'
 import { queueGR } from './goodreads.js'
 import { queueAA } from './annasarchive.js'
 

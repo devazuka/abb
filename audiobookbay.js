@@ -2,16 +2,19 @@ import {
   getDom,
   parseDom,
   toNormalizedText,
+  batchedIntervalOne,
   toText,
   findHref,
-  throttle,
+  echo,
 } from './lib.js'
 
 // TODO: update to https://audiobookbay.lu (need to update in database too)
 const ipResponse = await fetch('http://185.247.224.117', { redirect: 'manual' })
 export const ABBOrigin = ipResponse.headers.get('location') || 'http://185.247.224.117'
-console.log({ ABBOrigin })
-export const getABBDom = throttle(getDom(ABBOrigin), 45 * 1000)
+
+const getABBDomUnleashed = getDom(ABBOrigin)
+const queue = batchedIntervalOne('abb', (args) => getABBDomUnleashed(...args), 40*1000)
+export const getABBDom = (...args) => queue.enqueue(args)
 
 const isAudiobookAttribute = el => {
   if (!el.parentElement) return
@@ -144,7 +147,7 @@ export const getABB = async key => {
     id: torrentInfo.infoHash,
     ...torrentInfo,
     ...schemas,
-    url: `${ABBOrigin}/abss/${key}/`,
+    url: `${ABBOrigin}abss/${key}/`,
     slug: key,
   }
 }
@@ -189,7 +192,7 @@ export const getABBPageResults = async page => {
         const decoded = atob(el.innerHTML)
         return parse(parseDom(decoded))
       } catch (err) {
-        console.log('HTML:', err)
+        echo('ABB Error:', err)
         return {}
       }
     }

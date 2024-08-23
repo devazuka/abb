@@ -1,5 +1,5 @@
 import { getDom, parseDom, toNormalizedText, makeQueue } from './lib.js'
-import { updateBook } from './meli.js'
+import { updateBook } from './meili.js'
 
 let getAADom = getDom('http://annas-archive.org')
 
@@ -58,11 +58,7 @@ export const searchAA = async (query, index) => {
 }
 
 export const queueAA = makeQueue(async book => {
+  if (book.aa_href || book.aa_updatedAt) return
   const aa = await searchAA(book.name)
-  return updateBook(book.id, { ...aa[0], aa_updatedAt: Date.now() })
+  updateBook({ ...aa[0], aa_updatedAt: Date.now() }, book.id)
 }, 'aa_updatedAt')
-
-export const queueGR = makeQueue(async book => {
-  const gr = await loadGoodReadsData(book.name)
-  return updateBook(book.id, {...gr[0], gr_updatedAt: Date.now() })
-}, 'gr_updatedAt')

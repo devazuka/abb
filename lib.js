@@ -1,23 +1,13 @@
 import { crypto } from 'https://deno.land/std@0.224.0/crypto/mod.ts'
-import { cyan, yellow, green, red, gray, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
+import { cyan, yellow, green, red, gray, blue, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
 import { DOMParser } from 'https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm.ts'
 import { encodeBase58 } from 'https://deno.land/std@0.224.0/encoding/base58.ts'
 import ua from 'npm:random-useragent'
 
-export const throttle = (fn, delay) => {
-  // TODO: maybe add an eventual id + localstorage to presist duration ?
-  const timeoutDelay = s => setTimeout(s, delay)
-  const wait = () => new Promise(timeoutDelay)
-  let lastExecution = wait()
-  return async (...args) => {
-    const result = lastExecution.then(() => fn(...args))
-    lastExecution = result.then(wait, wait)
-    return result
-  }
-}
-
 export const parseDom = text =>
   new DOMParser().parseFromString(text, 'text/html')
+
+const noColor = typeof Deno?.noColor === "boolean" ? Deno.noColor : false
 
 const getKey = async text =>
   encodeBase58(
@@ -47,21 +37,22 @@ export const logReq = (host, status, href, detail) => {
     ? `${gray('q="')}${brightBlue(decodeURIComponent(query))}${gray('"')}`
     : searchParams.size && Object.fromEntries([...searchParams].map(decodeValues))
   const t = new Date()
-  console.log(
+  echo(
     color(`${p2(t.getHours())}:${p2(t.getMinutes())}`),
     yellow(String(status).padEnd(3)),
     `${coloredHost}${pathname}`,
     ...[params, detail].filter(Boolean),
   )
 }
+
+const FROM_CACHE = Symbol('FROM_CACHE')
 const p2 = n => String(n).padStart(2, '0')
 const decodeValues = ([k, v]) => [decodeURIComponent(k), decodeURIComponent(v)]
 export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
   let lastQueryAt = 0
   const { hostname, origin } = new URL(baseUrl)
   const host = hostname.replace(/^www\./, '')
-  const FROM_CACHE = Symbol('FROM_CACHE')
-  const log = (...args) => logReq(host, ...args)
+  const log = noColor ? console.log : (...args) => logReq(host, ...args)
   async function get(href, { skipCache, onlyCache, retry = 0 } = {}) {
     const key = `.cache/${await getKey(`${origin}${href}`)}`
     if (!skipCache) {
@@ -113,15 +104,15 @@ export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
     clearTimeout(timeout)
     if (!res.ok && res.status !== 500) {
       if (res.status === 429 || res.status === 403 || res.err?.message === 'body failed') {
-        console.log('retry', res.status)
-        console.log(truncate(await res.text()))
+        echo('retry', res.status)
+        echo(truncate(await res.text()))
         return get(href, { skipCache, retry: retry + 1 })
       }
       const err = Error(`${res.statusText}: ${res.status} - ${href}`)
       err.status = res.status
       err.response = res
       err.body = await res.text()
-      console.log(err)
+      echo(err)
       return
     }
     const text = await res.text()
@@ -154,46 +145,113 @@ export const findHref = (el, method, ...args) => {
   }
 }
 
-export const makeQueue = (action, resultKey, { idKey = 'id', delay = 60 * 1000 } = {}) => {
-  const resolvers = new WeakMap()
-  const queue = []
-  setInterval(async () => {
-    // TODO: handle more items as long as we hit the cache
-    while (true) {
-      const item = queue.pop()
-      if (!item) return
-      const { resolve, reject } = resolvers.get(item) || {}
-      try {
-        const result = await action(item)
-        resolve?.(result)
-        if (!action.fromCache?.(result)) return
-      } catch (err) {
-        push(item)
-        const reject = resolvers?.reject
-        reject
-          ? reject(err)
-          : console.warn(`queue failed for ${resultKey} (${item[idKey]}):`, err)
-        return
+const timers = {}
+const logTimers = (first) => {
+  const now = Date.now()
+  const max = Object.values(timers).reduce((a,b) => Math.max(a, b - now))
+  Deno.stdout.write(
+    new TextEncoder().encode(
+      (first ? '': '\r')
+      + Object.entries(timers)
+        .map(([key, { startedAt, unlockAt}]) => `${(startedAt ? red : brightMagenta)(key)} ${toDisplayTime(startedAt ? (now - startedAt) : (unlockAt - now))}`)
+        .join(' | ')
+      + '\x1B[K'
+    )
+  )
+  clearTimeout(timeoutLogTimers)
+  timeoutLogTimers = setTimeout(logTimers, 251)
+}
+
+
+let timeoutLogTimers
+export const echo = noColor ? console.log : (first, ...args) => {
+  clearTimeout(timeoutLogTimers)
+  timeoutLogTimers = setTimeout(logTimers, 251)
+  Deno.stdout.write(new TextEncoder().encode('\r'))
+  console.log(`\r${first}`, ...args, '\x1B[K')
+  logTimers(true)
+}
+// Unlike setInterval, this one will not trigger if already active
+// also, will remember once it was last trigger to not have to wait full time
+// on restart
+const toDisplayTime = ms => {
+  if (ms <= 0) return gray('-- --')
+  if (Math.abs(ms) < 60*1000) return brightGreen(`${(Math.trunc(ms /10 ) / 100).toFixed(2).padStart(5, '0')}s`)
+  if (Math.abs(ms) < 60*60*1000) return blue(`${Math.trunc(ms / (60*1000))}m${String(Math.trunc(Math.abs(ms) / 1000)%60).padStart(2, '0')}s`)
+  return red(`${Math.trunc(ms / (60*60*1000))}h${String(Math.trunc(Math.abs(ms) / (60*1000))%60).padStart(2, '0')}m`)
+}
+
+// TODO: add some kind of log that would tick when ever nothing was logged for a while
+export const keyInterval = (key, handler, delay) => {
+  timers[key] = { unlockAt: Number(localStorage[key]) || Date.now(), startedAt: 0 }
+  const next = async () => {
+    try {
+      const start = Date.now()
+      if (start < timers[key].unlockAt) return
+      timers[key].startedAt = start
+      const didSomething = await handler()
+      if (didSomething) {
+        timers[key].unlockAt = Date.now() + delay
+        localStorage[key] = timers[key].unlockAt
       }
+    } finally {
+      timers[key].startedAt = 0
+      setTimeout(next, 500)
     }
+  }
+  next()
+}
+
+noColor || setTimeout(logTimers, 100)
+
+const passValue = _ => _
+export const batchedInterval = (key, handler, delay) => {
+  const queue = []
+  keyInterval(key, async () => queue.length && handler(queue).catch(passValue), delay)
+  return queue
+}
+
+export const batchedIntervalOne = (key, handler, delay) => {
+  const resolvers = new WeakMap()
+  const batch = batchedInterval(key, async () => {
+    const item = batch.pop()
+    const { resolve, reject } = resolvers.get(item) || {}
+    try {
+      const result = await handler(item)
+      resolve?.(result)
+      if (result?.[FROM_CACHE]) return
+    } catch (err) {
+      batch.push(item)
+      reject
+        ? reject(err)
+        : echo(`queue failed for ${key} (${item[key]}):`, err)
+    }
+    return true
   }, delay)
 
-  const push = item => {
-    if (!(item?.[idKey])) {
-      throw Error(`item missing key: ${idKey}`)
-    }
-    if (item[resultKey]) return item
-    for (const { [idKey]: id } of queue) {
-      // already in the queue
-      if (id === item[idKey]) return
-    }
-    queue.push(item)
+  batch.enqueue = item => {
+    batch.push(item)
     return {
       // Don't do this at work
       then(resolve, reject) {
         resolvers.set(item, { resolve, reject })
       },
     }
+  }
+
+  return batch
+}
+
+export const makeQueue = (action, resultKey, { idKey = 'id', delay = 60 * 1000 } = {}) => {
+  const batch = batchedIntervalOne(resultKey, action, delay)
+  const push = item => {
+    if (!(item?.[idKey])) throw Error(`item missing key: ${idKey}`)
+    if (item[resultKey]) return item
+    for (const { [idKey]: id } of batch) {
+      // already in the queue
+      if (id === item[idKey]) return
+    }
+    return batch.enqueue(item)
   }
 
   return { push }
