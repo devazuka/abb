@@ -1,19 +1,19 @@
-import { toNormalizedText, getDom, makeQueue } from './lib.js'
+import { toNormalizedText, getDom, makeQueue, FROM_CACHE } from './lib.js'
 import { updateBook } from './meili.js'
 
 const getGRDom = getDom('https://www.goodreads.com')
 
 export const loadGoodReadsData = async q => {
   const params = { utf8: '✓', q, search_type: 'books' }
-  const results = await getGRDom(`/search?${new URLSearchParams(params)}`)
+  const dom = await getGRDom(`/search?${new URLSearchParams(params)}`)
   const mainResults = [
-    ...results.querySelectorAll('[itemtype="http://schema.org/Book"]'),
+    ...dom.querySelectorAll('[itemtype="http://schema.org/Book"]'),
   ]
   if (!mainResults.length) {
     const jsonResults = [
-      ...results.querySelectorAll('[itemtype="https://schema.org/Book"]'),
+      ...dom.querySelectorAll('[itemtype="https://schema.org/Book"]'),
     ]
-    return jsonResults.map(li => {
+    const results = jsonResults.map(li => {
       const links = [...li.querySelectorAll('a')].map(a =>
         a.getAttribute('href'),
       )
@@ -51,6 +51,8 @@ export const loadGoodReadsData = async q => {
         gr_ratingCount: ratingCount,
       }
     })
+    results[FROM_CACHE] = dom[FROM_CACHE]
+    return results
   }
   // extra info we could get from another query:
   // - description
@@ -58,7 +60,7 @@ export const loadGoodReadsData = async q => {
   // - serie id
   // - publish date (precise)
   // - pages count
-  return mainResults.map(tr => {
+  const results = mainResults.map(tr => {
     const links = [...tr.querySelectorAll('a')].map(a => a.getAttribute('href'))
     const minirating = tr.querySelector('.minirating')
     const [ratingValue, ratingCount] = toNormalizedText(minirating.textContent)
@@ -90,10 +92,13 @@ export const loadGoodReadsData = async q => {
       gr_ratingCount: ratingCount,
     }
   })
+  results[FROM_CACHE] = dom[FROM_CACHE]
+  return results
 }
 
 export const queueGR = makeQueue(async book => {
-  if (book.gr_bookId || book.gr_updatedAt) return
+  if (book.gr_bookId || book.gr_updatedAt) return { [FROM_CACHE]: true }
   const gr = await loadGoodReadsData(book.name)
   updateBook({...gr[0], gr_updatedAt: Date.now() }, book.id)
-}, 'gr_updatedAt', { delay: 30*1000 })
+  return gr
+}, 'goodreads', { delay: 30*1000 })

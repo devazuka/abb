@@ -41,6 +41,7 @@ const syncBooks = ({ maxPages = 3, startAt = 1, step = 1 } = {}) => async () => 
   }
   await waitForAllBookUpdates()
   echo(`total books added: ${total}/${scanned}`, total)
+  return true
 }
 
 keyInterval('check-home-page-1h', syncBooks({

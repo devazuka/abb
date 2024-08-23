@@ -13,7 +13,8 @@ const getKey = async text =>
   encodeBase58(
     await crypto.subtle.digest('SHA-384', new TextEncoder().encode(text)),
   )
-const getData = body => {
+
+const getData = (body, withBody, fromCache) => {
   try {
     const { content_html } = JSON.parse(body)
     return parseDom(`<div>${content_html}</div>`)
@@ -45,7 +46,7 @@ export const logReq = (host, status, href, detail) => {
   )
 }
 
-const FROM_CACHE = Symbol('FROM_CACHE')
+export const FROM_CACHE = Symbol('FROM_CACHE')
 const p2 = n => String(n).padStart(2, '0')
 const decodeValues = ([k, v]) => [decodeURIComponent(k), decodeURIComponent(v)]
 export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
@@ -53,15 +54,16 @@ export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
   const { hostname, origin } = new URL(baseUrl)
   const host = hostname.replace(/^www\./, '')
   const log = noColor ? console.log : (...args) => logReq(host, ...args)
-  async function get(href, { skipCache, onlyCache, retry = 0 } = {}) {
-    const key = `.cache/${await getKey(`${origin}${href}`)}`
+  async function get(href, { skipCache, onlyCache, retry = 0, withBody } = {}) {
+    skipCache = false
+    const key = await getKey(`${origin}${href}`)
     if (!skipCache) {
-      const cache = await Deno.readTextFile(key).catch(err => err)
+      const cache = await Deno.readTextFile(`.cache/${key}`).catch(err => err)
       if (!(cache instanceof Deno.errors.NotFound)) {
-        const dom = await getData(cache)
-        dom && (dom[FROM_CACHE] = true)
-        log(200, href, brightMagenta('CACHED'))
-        return dom
+        const dom = await getData(cache, withBody, true)
+        dom && (dom[FROM_CACHE] = key)
+        log(200, href, brightMagenta(`CACHED:${key}`))
+        return withBody ? { dom, body: cache, [FROM_CACHE]: key } : dom
       }
     }
     const rua = ua.getRandom()
@@ -112,12 +114,11 @@ export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
       err.status = res.status
       err.response = res
       err.body = await res.text()
-      echo(err)
-      return
+      throw err
     }
     const text = await res.text()
-    res.status !== 500 && (await Deno.writeTextFile(key, text))
-    return getData(text)
+    res.status !== 500 && (await Deno.writeTextFile(`.cache/${key}`, text))
+    return withBody ? { dom: getData(text), body: text } : getData(text)
   }
 
   get.isFromCache = dom => dom?.[FROM_CACHE] === true
@@ -184,6 +185,7 @@ const toDisplayTime = ms => {
 // TODO: add some kind of log that would tick when ever nothing was logged for a while
 export const keyInterval = (key, handler, delay) => {
   timers[key] = { unlockAt: Number(localStorage[key]) || Date.now(), startedAt: 0 }
+  echo(key, delay)
   const next = async () => {
     try {
       const start = Date.now()
@@ -246,7 +248,6 @@ export const makeQueue = (action, resultKey, { idKey = 'id', delay = 60 * 1000 }
   const batch = batchedIntervalOne(resultKey, action, delay)
   const push = item => {
     if (!(item?.[idKey])) throw Error(`item missing key: ${idKey}`)
-    if (item[resultKey]) return item
     for (const { [idKey]: id } of batch) {
       // already in the queue
       if (id === item[idKey]) return
