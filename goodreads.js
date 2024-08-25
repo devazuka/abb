@@ -1,7 +1,20 @@
-import { toNormalizedText, getDom, makeQueue, FROM_CACHE } from './lib.js'
+import { toNormalizedText, getDom, makeQueue, FROM_CACHE, echo } from './lib.js'
 import { updateBook } from './meili.js'
 
 const getGRDom = getDom('https://www.goodreads.com')
+
+const isNotStudy = result => {
+  const name = result.gr_authors?.[0]?.name
+  return name !== 'BookRags' && name !== 'SuperSummary'
+}
+
+const byRating = (a, b) => b.gr_ratingCount - a.gr_ratingCount
+
+const adaptResults = (fromCache, rawResults) => {
+  const results = rawResults.filter(isNotStudy).sort(byRating)
+  results[FROM_CACHE] = fromCache
+  return  results
+}
 
 export const loadGoodReadsData = async q => {
   const params = { utf8: '✓', q, search_type: 'books' }
@@ -13,7 +26,7 @@ export const loadGoodReadsData = async q => {
     const jsonResults = [
       ...dom.querySelectorAll('[itemtype="https://schema.org/Book"]'),
     ]
-    const results = jsonResults.map(li => {
+    return adaptResults(dom[FROM_CACHE], jsonResults.map(li => {
       const links = [...li.querySelectorAll('a')].map(a =>
         a.getAttribute('href'),
       )
@@ -50,9 +63,7 @@ export const loadGoodReadsData = async q => {
         gr_ratingValue: ratingValue,
         gr_ratingCount: ratingCount,
       }
-    })
-    results[FROM_CACHE] = dom[FROM_CACHE]
-    return results
+    }))
   }
   // extra info we could get from another query:
   // - description
@@ -60,7 +71,7 @@ export const loadGoodReadsData = async q => {
   // - serie id
   // - publish date (precise)
   // - pages count
-  const results = mainResults.map(tr => {
+  return adaptResults(dom[FROM_CACHE], mainResults.map(tr => {
     const links = [...tr.querySelectorAll('a')].map(a => a.getAttribute('href'))
     const minirating = tr.querySelector('.minirating')
     const [ratingValue, ratingCount] = toNormalizedText(minirating.textContent)
@@ -91,14 +102,18 @@ export const loadGoodReadsData = async q => {
       gr_ratingValue: ratingValue,
       gr_ratingCount: ratingCount,
     }
-  })
-  results[FROM_CACHE] = dom[FROM_CACHE]
-  return results
+  }))
+  // if no results, we should fallback on scanning author books
+  // get extra details from top match
+  // -> https://www.goodreads.com/book/show/3428935
+  // SERIE: look for this link: https://www.goodreads.com/series/46817-the-demon-cycle
+  // TAGS: '.BookPageMetadataSection__genreButton > .Button__labelItem'
 }
 
 export const queueGR = makeQueue(async book => {
-  if (book.gr_bookId || book.gr_updatedAt) return { [FROM_CACHE]: true }
+  // if (book.gr_bookId || book.gr_updatedAt) return { [FROM_CACHE]: true }
   const gr = await loadGoodReadsData(book.name)
-  updateBook({...gr[0], gr_updatedAt: Date.now() }, book.id)
+  echo('gr-match', gr[0])
+  updateBook({...gr[0], gr_updatedAt: Math.trunc(Date.now() / 1000) }, book.id)
   return gr
 }, 'goodreads', { delay: 30*1000 })

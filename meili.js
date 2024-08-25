@@ -127,3 +127,32 @@ export const updateBook = async (data, id) => {
     return updateBook(data, id)
   }
 }
+
+
+const getBooksPages = async function* ({ limit = 10, sort } = {}) {
+  let offset = 0
+  while (true) {
+    try {
+      const { hits } = await meli('/indexes/audiobooks/search', {
+        q: '',
+        offset,
+        limit,
+        sort: sort || ['uploadDate:desc', 'creationDate:desc'],
+      })
+      echo('get-books-progress', offset / limit + 1, { offset, count: hits.length })
+      offset += limit
+      yield hits
+      if (hits.length < limit) break
+    } catch (err) {
+      console.log('retry in 1s, err:', err)
+      await new Promise(s => setTimeout(s, 1000))
+    }
+  }
+}
+
+export const forEachBook = async function* (args) {
+  for await (const results of getBooksPages(args)) {
+    for (const result of results) yield result
+  }
+}
+

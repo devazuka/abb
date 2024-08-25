@@ -1,6 +1,6 @@
 import { keyInterval, echo } from './lib.js'
 import { queueGR } from './goodreads.js'
-import { waitForAllBookUpdates, updateBook, documentExists, meli } from './meili.js'
+import { waitForAllBookUpdates, updateBook, documentExists, meli, forEachBook } from './meili.js'
 import { queueAA } from './annasarchive.js'
 import { getABB, getABBPageResults } from './audiobookbay.js'
 
@@ -25,8 +25,8 @@ const syncBooks = ({ maxPages = 3, startAt = 1, step = 1 } = {}) => async () => 
             updateBook(book)
             newBooks.push(book)
           }
-          queueGR.push(book)
-          queueAA.push(book)
+          book.gr_updatedAt || queueGR.push(book)
+          book.aa_updatedAt || queueAA.push(book)
         }
         break
       } catch (err) {

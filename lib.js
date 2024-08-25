@@ -55,7 +55,6 @@ export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
   const host = hostname.replace(/^www\./, '')
   const log = noColor ? console.log : (...args) => logReq(host, ...args)
   async function get(href, { skipCache, onlyCache, retry = 0, withBody } = {}) {
-    skipCache = false
     const key = await getKey(`${origin}${href}`)
     if (!skipCache) {
       const cache = await Deno.readTextFile(`.cache/${key}`).catch(err => err)
@@ -185,7 +184,6 @@ const toDisplayTime = ms => {
 // TODO: add some kind of log that would tick when ever nothing was logged for a while
 export const keyInterval = (key, handler, delay) => {
   timers[key] = { unlockAt: Number(localStorage[key]) || Date.now(), startedAt: 0 }
-  echo(key, delay)
   const next = async () => {
     try {
       const start = Date.now()

@@ -261,6 +261,7 @@ code {
 #links li {
   list-style: none;
   margin: 0;
+  min-width: 0;
 }
 #links {
   width: 100%;
@@ -299,6 +300,7 @@ code {
   display: flex;
   flex-direction: column;
   padding: 0 5px;
+  min-width: 0;
 }
 
 #links a:not(:has(.wrap)) {
@@ -365,8 +367,8 @@ code {
       <ul id="links">
         <li><a id="magnet"       href="#"></a></li>
         <li><a id="audiobookbay" href="#"></a></li>
-        <li><a id="annasarchive" href="#"></a></li>
         <li><a id="goodreads"    href="#"></a></li>
+        <li><a id="annasarchive" href="#"></a></li>
       </ul>
       <hr>
       <div id="meta"></div>
@@ -580,11 +582,13 @@ const search = async () => {
   params.set('s', localStorage.hitsPerPage = hitsPerPageSelect.value)
   params.set('a', localStorage.attrs = selectedAttrs.join(' '))
   history.replaceState(null, '', `?${params}`)
+  const query = searchInput.value.trim()
   const result = await multiSearch({
     q: searchInput.value,
     attributesToSearchOn: activeAttrs,
     attributesToHighlight: activeAttrs,
     hitsPerPage: Number(hitsPerPageSelect.value),
+    sort: query ? [] : ["uploadDate:desc", "creationDate:desc"],
   })
 
   searchResult = result.hits

@@ -56,6 +56,10 @@ const push = (data, k, v) => {
   k = `${k[0].toLowerCase()}${k.slice(1).replaceAll(' ', '')}`
   if (blackListedKeys.has(k)) return
   if (k === 'info' && blackListedInfos.has(v)) return
+  if (k === 'datePublished' || k === 'uploadDate' || k === 'creationDate') {
+    const time = new Date(v).getTime()
+    time && (v = Math.trunc(time / 1000))
+  }
   if (Array.isArray(data[k])) {
     data[k].push(v)
   } else if (data[k]) {

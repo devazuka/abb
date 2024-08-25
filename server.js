@@ -1,5 +1,7 @@
-import { meliProxySearch } from './meili.js'
+import { meliProxySearch, forEachBook } from './meili.js'
 import { proxyImage } from './image-proxy.js'
+import { queueGR } from './goodreads.js'
+import { queueAA } from './annasarchive.js'
 
 const PAGE_NOT_FOUND = new Response('Page not found: Error 404', {
   status: 404,
@@ -20,7 +22,8 @@ const FONT = new Response(await Deno.readFile('./barlow-condensed.woff2'), {
 const httpHandler = request => {
   const { pathname, hostname, searchParams } = new URL(request.url)
   if (pathname === '/') {
-    return hostname === '0.0.0.0' ? responseIndex() : PAGE_INDEX
+    const isDev = hostname === '0.0.0.0' || hostname === 'localhost'
+    return isDev ? responseIndex() : PAGE_INDEX
   }
   if (pathname === '/barlow-condensed.woff2') return FONT
   if (pathname === '/search') return meliProxySearch(request)
@@ -29,3 +32,15 @@ const httpHandler = request => {
 }
 
 export default { fetch: httpHandler }
+
+const syncTask = async () => {
+  const after = 1724596276
+  for await (const book of forEachBook({ limit: 10, sort: ['uploadDate:asc', 'creationDate:asc'] })) {
+    const done = book.gr_updatedAt > after
+    book.aa_href || queueAA.push(book)
+    if (done) continue
+    const grChanges = await queueGR.push(book)
+  }
+}
+
+syncTask()

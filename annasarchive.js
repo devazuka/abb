@@ -59,6 +59,6 @@ export const searchAA = async (query, index) => {
 export const queueAA = makeQueue(async book => {
   if (book.aa_href || book.aa_updatedAt) return { [FROM_CACHE]: true }
   const aa = await searchAA(book.name)
-  updateBook({ ...aa[0], aa_updatedAt: Date.now() }, book.id)
+  updateBook({ ...aa[0], aa_updatedAt: Math.trunc(Date.now() / 1000) }, book.id)
   return aa
 }, 'annas-archive')
