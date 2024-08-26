@@ -129,8 +129,7 @@ export const updateBook = async (data, id) => {
 }
 
 
-const getBooksPages = async function* ({ limit = 10, sort } = {}) {
-  let offset = 0
+const getBooksPages = async function* ({ limit = 10, offset = 0, reverse } = {}) {
   while (true) {
     try {
       const { results } = await meli('/indexes/audiobooks/documents/fetch', {
@@ -138,7 +137,7 @@ const getBooksPages = async function* ({ limit = 10, sort } = {}) {
         limit,
       })
       echo('get-books-progress', offset / limit + 1, { offset, count: results.length })
-      offset += limit
+      reverse ? (offset -= limit) : (offset += limit)
       yield results
       if (results.length < limit) break
     } catch (err) {
@@ -149,8 +148,14 @@ const getBooksPages = async function* ({ limit = 10, sort } = {}) {
 }
 
 export const forEachBook = async function* (args) {
-  for await (const results of getBooksPages(args)) {
-    for (const result of results) yield result
+  if (args?.reverse) {
+    for await (const results of getBooksPages(args)) {
+      for (const result of results.reverse()) yield result
+    }
+  } else {
+    for await (const results of getBooksPages(args)) {
+      for (const result of results) yield result
+  }
   }
 }
 

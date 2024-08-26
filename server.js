@@ -35,7 +35,7 @@ export default { fetch: httpHandler }
 
 const syncTask = async () => {
   const after = 1724596276
-  for await (const book of forEachBook({ limit: 10, sort: ['uploadDate:asc', 'creationDate:asc'] })) {
+  for await (const book of forEachBook({ limit: 10, reverse: true, offset: 130000 })) {
     const done = book.gr_updatedAt > after
     book.aa_href || queueAA.push(book)
     if (done) continue
