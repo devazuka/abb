@@ -18,7 +18,7 @@ export const searchAA = async (query, index) => {
     { withBody: true },
   )
 
-  const expected = body.split('href="/md5/').length - 1
+  const expected = body ? body.split('href="/md5/').length - 1 : 0
   const results = [...dom.getElementsByClassName('h-[125] flex flex-col justify-center')]
     .map(el => {
       const links = el.getElementsByTagName('A')

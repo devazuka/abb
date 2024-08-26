@@ -97,7 +97,7 @@ export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
     } catch (err) {
       if (controller.signal.aborted) {
         log('---', href, 'ABORTED')
-        return get(href, { skipCache, retry: retry + 1 })
+        return get(href, { skipCache, retry: retry + 1, withBody })
       }
       res || (res = { status: 999, text: () => err.message, err })
       log(res.status, href, 'FAILED')
@@ -107,7 +107,7 @@ export const getDom = (baseUrl, { rate = 0, headers } = {}) => {
       if (res.status === 429 || res.status === 403 || res.err?.message === 'body failed') {
         echo('retry', res.status)
         echo(truncate(await res.text()))
-        return get(href, { skipCache, retry: retry + 1 })
+        return get(href, { skipCache, retry: retry + 1, withBody })
       }
       const err = Error(`${res.statusText}: ${res.status} - ${href}`)
       err.status = res.status

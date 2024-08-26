@@ -133,18 +133,16 @@ const getBooksPages = async function* ({ limit = 10, sort } = {}) {
   let offset = 0
   while (true) {
     try {
-      const { hits } = await meli('/indexes/audiobooks/search', {
-        q: '',
+      const { results } = await meli('/indexes/audiobooks/documents/fetch', {
         offset,
         limit,
-        sort: sort || ['uploadDate:desc', 'creationDate:desc'],
       })
-      echo('get-books-progress', offset / limit + 1, { offset, count: hits.length })
+      echo('get-books-progress', offset / limit + 1, { offset, count: results.length })
       offset += limit
-      yield hits
-      if (hits.length < limit) break
+      yield results
+      if (results.length < limit) break
     } catch (err) {
-      console.log('retry in 1s, err:', err)
+      echo('retry in 1s, err:', err)
       await new Promise(s => setTimeout(s, 1000))
     }
   }
