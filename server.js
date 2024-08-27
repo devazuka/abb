@@ -20,6 +20,7 @@ const FONT = new Response(await Deno.readFile('./barlow-condensed.woff2'), {
 })
 
 const httpHandler = request => {
+  console.log(Object.fromEntries(request.headers))
   const { pathname, hostname, searchParams } = new URL(request.url)
   if (pathname === '/') {
     const isDev = hostname === '0.0.0.0' || hostname === 'localhost'
@@ -33,13 +34,20 @@ const httpHandler = request => {
 
 export default { fetch: httpHandler }
 
+let total = 0
 const syncTask = async () => {
   const after = 1724596276
-  for await (const book of forEachBook({ limit: 10, reverse: true, offset: 130000 })) {
+  for await (const book of forEachBook({
+    limit: 100,
+    reverse: true,
+    offset: 130000,
+  })) {
+    total++
     const done = book.gr_updatedAt > after
     book.aa_href || queueAA.push(book)
     if (done) continue
     const grChanges = await queueGR.push(book)
+    console.log(total)
   }
 }
 

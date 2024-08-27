@@ -718,7 +718,7 @@ const selectResult = idx => {
     if (imgURL !== '/images/default_cover.jpg') {
       getImageWithColor(imgURL, hit).then(({ color, img }) => {
         if (selected !== current) return
-        coverEl.append(img)
+        replace(coverEl, img)
         const [r,g,b] = color
         coverEl.style.backgroundColor = `#${[
           r.toString(16).padStart(2, '0'),
