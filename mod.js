@@ -4,10 +4,14 @@ import { queueAA } from './annasarchive.js'
 import { getABB, getABBPageResults } from './audiobookbay.js'
 
 // Because AA as a strict rate limiting we run those query with a delay
-
-let SYNC_PENDING
-const syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
-  await SYNC_PENDING
+let SYNC_PENDING = Promise.resolve()
+export const waitUntilNoSyncPending = () => SYNC_PENDING
+export const syncBooks = (args) => {
+  const result = SYNC_PENDING.then(() => _syncBooks(args))
+  SYNC_PENDING = result.catch(() => {})
+  return result
+}
+const _syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
   let i = startAt
   let total = 0
   let scanned = 0
@@ -42,33 +46,5 @@ const syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
   }
   await waitForAllBookUpdates()
   console.log(`total books added: ${total}/${scanned}`, total)
-  setTimeout(() => SYNC_PENDING = syncBooks(), 10*60*1000)
+  setTimeout(syncBooks, 10*60*1000)
 }
-
-SYNC_PENDING = syncBooks({ maxPages: 5, startAt: 1 })
-
-setInterval(() => {
-  // big scan every day
-  SYNC_PENDING = syncBooks({ maxPages: 50, startAt: 1 })
-}, 24*60*60*1000)
-
-setInterval(() => {
-  // Full scan every week
-  SYNC_PENDING = syncBooks({ maxPages: 500, startAt: 1 })
-}, 24*60*60*1000 * 7)
-
-let total = 0
-const after = 1724596276
-for await (const book of forEachBook({ limit: 100 })) {
-  await SYNC_PENDING
-  total += 1
-  const done = book.gr_updatedAt > after
-  book.aa_updatedAt || book.aa_href || queueAA.enqueue(book)
-  // console.log(book.name, done ? 'DONE' : 'TODO')
-  if (done) continue
-  const grChanges = await queueGR.enqueue(book)
-}
-
-// 2 issues to fix:
-// - both background checks and main loop going
-// - fix dates of newer entries

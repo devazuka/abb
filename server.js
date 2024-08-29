@@ -2,6 +2,7 @@ import { meliProxySearch, forEachBook } from './meili.js'
 import { proxyImage } from './image-proxy.js'
 import { queueGR } from './goodreads.js'
 import { queueAA } from './annasarchive.js'
+import { waitUntilNoSyncPending, syncBooks } from './mod.js'
 
 const PAGE_NOT_FOUND = new Response('Page not found: Error 404', {
   status: 404,
@@ -34,20 +35,32 @@ const httpHandler = request => {
 
 export default { fetch: httpHandler }
 
+setInterval(() => {
+  // big scan every day
+  syncBooks({ maxPages: 50, startAt: 1 })
+}, 24*60*60*1000)
+
+setInterval(() => {
+  // Full scan every week
+  syncBooks({ maxPages: 500, startAt: 1 })
+}, 24*60*60*1000 * 7)
+
 let total = 0
 const syncTask = async () => {
   const after = 1724596276
+  await syncBooks({ maxPages: 5, startAt: 1 })
   for await (const book of forEachBook({
     limit: 100,
     reverse: true,
     offset: 130000,
   })) {
+    await waitUntilNoSyncPending()
     total++
     const done = book.gr_updatedAt > after
-    book.aa_href || queueAA.push(book)
+    book.aa_href || queueAA.enqueue(book)
     if (done) continue
-    const grChanges = await queueGR.push(book)
-    console.log(total)
+    const grChanges = await queueGR.enqueue(book)
+    console.log({ total })
   }
 }
 
