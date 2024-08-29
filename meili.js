@@ -1,4 +1,4 @@
-import { logReq, echo, batchedInterval } from './lib.js'
+import { logReq, echo } from './lib.js'
 
 const meiliUrl = Deno.env.get('MEILI_URL').replace(/\/$/, '')
 const key = Deno.env.get('MEILI_MASTER_KEY')
@@ -84,7 +84,8 @@ export const documentExists = async key => {
 
 // await updateBook('c0a84cf1e56f7179bdb9a3c9d18d71e79ce3e759')
 const resolvers = []
-const batch = batchedInterval('meili-update', async () => {
+const batch = []
+const handleBatch = async () => {
   const books = [...batch]
   batch.length = 0
 
@@ -100,7 +101,14 @@ const batch = batchedInterval('meili-update', async () => {
     echo('unable to update books, error:', err)
     for (const { reject } of resolversPending) reject(err)
   }
-}, 10*1000)
+}
+
+let batchTimeout
+const push = item => {
+  clearTimeout(batchTimeout)
+  batch.push(item)
+  batchTimeout = setTimeout(handleBatch, 1000 - batch.length * 50)
+}
 
 export const waitForAllBookUpdates = () => new Promise((resolve, reject) => {
   if (!batch.length) return resolve(0)
@@ -120,7 +128,7 @@ export const updateBook = async (data, id) => {
       if (err.code !== 404) throw err
     }
     Object.assign(item, data)
-    batch.push(item)
+    push(item)
   } catch (err) {
     echo('update book error:',  err)
     await new Promise(s => setTimeout(s, 1000))
@@ -129,12 +137,17 @@ export const updateBook = async (data, id) => {
 }
 
 
+
+// Do some global changes on the database:
+// update the dates format to timestamps (in sec)
+
 const getBooksPages = async function* ({ limit = 10, offset = 0, reverse } = {}) {
   while (true) {
     try {
       const { results } = await meli('/indexes/audiobooks/documents/fetch', {
         offset,
         limit,
+        // sort: sort || ['uploadDate:desc', 'creationDate:desc'],
       })
       echo('get-books-progress', offset / limit + 1, { offset, count: results.length })
       reverse ? (offset -= limit) : (offset += limit)
@@ -155,7 +168,24 @@ export const forEachBook = async function* (args) {
   } else {
     for await (const results of getBooksPages(args)) {
       for (const result of results) yield result
-  }
+    }
   }
 }
 
+/*
+const idkwhatisdis = {}
+for await (const book of forEachBook(10000)) {
+  for (const key of ['datePublished', 'uploadDate', 'gr_updatedAt', 'aa_updatedAt', 'creationDate']) {
+    if (book[key] && typeof book[key] === 'number' && book[key] < 1724592) {
+      console.log(book)
+      Deno.exit(1)
+    }
+  }
+//  await new Promise(s => setTimeout(s, 1000))
+}
+
+
+await Deno.writeTextFile('db-names.json', JSON.stringify(idkwhatisdis, null, 2))
+
+
+*/

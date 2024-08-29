@@ -2,7 +2,6 @@ import {
   getDom,
   parseDom,
   toNormalizedText,
-  batchedIntervalOne,
   toText,
   findHref,
   echo,
@@ -11,10 +10,7 @@ import {
 // TODO: update to https://audiobookbay.lu (need to update in database too)
 const ipResponse = await fetch('http://185.247.224.117', { redirect: 'manual' })
 export const ABBOrigin = ipResponse.headers.get('location') || 'http://185.247.224.117'
-
-const getABBDomUnleashed = getDom(ABBOrigin)
-const queue = batchedIntervalOne('abb', (args) => getABBDomUnleashed(...args), 40*1000)
-export const getABBDom = (...args) => queue.enqueue(args)
+export const getABBDom = getDom(ABBOrigin)
 
 const isAudiobookAttribute = el => {
   if (!el.parentElement) return

@@ -1,10 +1,9 @@
 import { getDom, parseDom, toNormalizedText, makeQueue, echo, FROM_CACHE } from './lib.js'
 import { updateBook } from './meili.js'
 
-let getAADom = getDom('http://annas-archive.org')
+const getAADom = getDom('http://annas-archive.org')
 
 const isDiv = node => node.tagName === 'DIV'
-const notScript = node => node.tagName !== 'SCRIPT'
 const isComment = node => node.nodeName === '#comment'
 export const searchAA = async (query, index) => {
   const { dom, body, [FROM_CACHE]: fromCache } = await getAADom(

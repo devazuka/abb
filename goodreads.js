@@ -109,11 +109,9 @@ export const loadGoodReadsData = async q => {
   // SERIE: look for this link: https://www.goodreads.com/series/46817-the-demon-cycle
   // TAGS: '.BookPageMetadataSection__genreButton > .Button__labelItem'
 }
-
 export const queueGR = makeQueue(async book => {
   // if (book.gr_bookId || book.gr_updatedAt) return { [FROM_CACHE]: true }
   const gr = await loadGoodReadsData(book.name)
-  echo('gr-match', gr[0])
   updateBook({...gr[0], gr_updatedAt: Math.trunc(Date.now() / 1000) }, book.id)
   return gr
 }, 'goodreads', { delay: 30*1000 })
