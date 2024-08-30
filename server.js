@@ -34,6 +34,7 @@ const httpHandler = request => {
 export default { fetch: httpHandler }
 
 // for some reasons, I got issues with deno, run the sync with node
+/*
 console.log('npm install:', await Deno.run({
   cmd: [
     ...['npm', 'ci'],
@@ -43,3 +44,4 @@ console.log('npm install:', await Deno.run({
 }).status())
 
 const syncProcess = Deno.run({ cmd: ['node', 'nodeno.js'] })
+*/
