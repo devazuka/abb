@@ -178,7 +178,7 @@ export const getABB = async key => {
 
 export const getABBPageResults = async page => {
   const dom = await getABBDom(page === 1 ? '' : `/page/${page}/`, {
-    skipCache: true,
+    expire: 3*60*1000,
   })
   const results = [...dom.getElementsByClassName('post')]
   return results.map(function parse(el) {

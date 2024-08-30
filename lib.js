@@ -23,6 +23,11 @@ const truncate = (text, size = Deno.consoleSize().columns) => text.length < size
   ? text
   : `${text.slice(0, size).replaceAll('\n', ' ')}…`
 
+const tryDecode = str => {
+  try   { return decodeURIComponent(str) }
+  catch { return str }
+}
+
 const colors = [cyan, yellow, green, red, brightBlue, brightMagenta, brightGreen, brightRed, magenta]
 const coloredHosts = {}
 export const logReq = (host, status, href, detail) => {
@@ -31,7 +36,7 @@ export const logReq = (host, status, href, detail) => {
   const { pathname, searchParams } = new URL(`https://${host}${href}`)
   const query = searchParams.get('q')
   const params = query
-    ? `${gray('q="')}${brightBlue(decodeURIComponent(query))}${gray('"')}`
+    ? `${gray('q="')}${brightBlue(query)}${gray('"')}`
     : searchParams.size && Object.fromEntries([...searchParams].map(decodeValues))
   const t = new Date()
   echo(
@@ -44,17 +49,17 @@ export const logReq = (host, status, href, detail) => {
 
 export const FROM_CACHE = Symbol('FROM_CACHE')
 const p2 = n => String(n).padStart(2, '0')
-const decodeValues = ([k, v]) => [decodeURIComponent(k), decodeURIComponent(v)]
+const decodeValues = ([k, v]) => [tryDecode(k), tryDecode(v)]
 export const getDom = (baseUrl, { headers } = {}) => {
   const { hostname, origin } = new URL(baseUrl)
   const host = hostname.replace(/^www\./, '')
   const log = noColor ? console.log : (...args) => logReq(host, ...args)
-  async function get(href, { skipCache, retry = 0, withBody } = {}) {
+  async function get(href, { expire, retry = 0, withBody } = {}) {
     let res
     try {
       res = await fetch(DISPATCHER_URL, {
         method: 'POST',
-        body: JSON.stringify({ url: `${origin}${href}`, skipCache, headers })
+        body: JSON.stringify({ url: `${origin}${href}`, expire, headers })
       })
       log(res.status, href)
     } catch (err) {
@@ -65,18 +70,27 @@ export const getDom = (baseUrl, { headers } = {}) => {
       if (res.err?.message === 'body failed') {
         echo('retry', res.status)
         echo(truncate(await res.text()))
-        return get(href, { skipCache, retry: retry + 1, withBody })
+        return get(href, { expire, retry: retry + 1, withBody })
       }
       const err = Error(`${res.statusText}: ${res.status} - ${href}`)
       err.status = res.status
       err.response = res
-      err.body = await res.text()
+      try {
+        err.body = await res.text()
+      } catch {
+        // ignore
+      }
       throw err
     }
-    const text = await res.text()
-    const result =  withBody ? { dom: getData(text), body: text } : getData(text)
-    result[FROM_CACHE] = res.headers.get('x-from-cache')
-    return result
+    try {
+      const text = await res.text()
+      const result =  withBody ? { dom: getData(text), body: text } : getData(text)
+      result[FROM_CACHE] = res.headers.get('x-from-cache')
+      return result
+    } catch (err) {
+      echo('retry', err.message)
+      return get(href, { expire, retry: retry + 1, withBody })
+    }
   }
 
   get.isFromCache = dom => dom?.[FROM_CACHE]

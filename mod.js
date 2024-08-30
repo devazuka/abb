@@ -1,5 +1,5 @@
 import { queueGR } from './goodreads.js'
-import { waitForAllBookUpdates, updateBook, documentExists, forEachBook } from './meili.js'
+import { waitForAllBookUpdates, updateBook, documentExists } from './meili.js'
 import { queueAA } from './annasarchive.js'
 import { getABB, getABBPageResults } from './audiobookbay.js'
 
@@ -11,17 +11,25 @@ export const syncBooks = (args) => {
   SYNC_PENDING = result.catch(() => {})
   return result
 }
+
+const preFetchSize = [...Array(5).keys()]
 const _syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
   let i = startAt
   let total = 0
   let scanned = 0
   let emptyPages = 0
+  const preFetchedPages = {}
   while (i > 0 && i <= 500) {
     let newBooks
+    for (const n of preFetchSize) {
+      const page = n + i
+      if (preFetchedPages[page]) continue
+      preFetchedPages[page] = getABBPageResults(page)
+    }
     while (true) {
       try {
         newBooks = []
-        const bs = await getABBPageResults(i)
+        const bs = await preFetchedPages[i]
         scanned += bs.length
         for (const b of bs) {
           let book = await documentExists(b.key)
