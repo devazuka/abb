@@ -1,3 +1,4 @@
+import { recieveResponse } from './lib.js'
 import { meliProxySearch, forEachBook } from './meili.js'
 import { proxyImage } from './image-proxy.js'
 import { queueGR } from './goodreads.js'
@@ -29,6 +30,7 @@ const httpHandler = request => {
   }
   if (pathname === '/barlow-condensed.woff2') return FONT
   if (pathname === '/search') return meliProxySearch(request)
+  if (pathname === '/reply') return recieveResponse(request)
   if (pathname === '/img') return proxyImage(searchParams.get('id'))
   return PAGE_NOT_FOUND
 }

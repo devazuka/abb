@@ -1,7 +1,11 @@
-import { cyan, yellow, green, red, gray, blue, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
+import { cyan, yellow, green, red, gray, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
 import { DOMParser } from 'https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm.ts'
 
 const DISPATCHER_URL = Deno.env.get('DISPATCHER_URL') || 'https://dispatch.devazuka.com'
+const PORT = Deno.env.get('PORT')
+const REPLY = PORT ? `http://localhost:${PORT}` : undefined
+
+console.log({ REPLY })
 
 export const parseDom = text =>
   new DOMParser().parseFromString(text, 'text/html')
@@ -47,27 +51,27 @@ export const logReq = (host, status, href, detail) => {
   )
 }
 
-export const FROM_CACHE = Symbol('FROM_CACHE')
-const p2 = n => String(n).padStart(2, '0')
-const decodeValues = ([k, v]) => [tryDecode(k), tryDecode(v)]
-export const getDom = (baseUrl, { headers } = {}) => {
-  const { hostname, origin } = new URL(baseUrl)
-  const host = hostname.replace(/^www\./, '')
-  const log = noColor ? console.log : (...args) => logReq(host, ...args)
-  async function get(href, { expire, retry = 0, withBody } = {}) {
+const pendingRequests = new Map()
+const sendRequest = async function get(href, { origin, log, expire, retry = 0, withBody, headers } = {}) {
     // Avoid loop spam, exponentially wait
     retry > 0 && (await new Promise(resolve => setTimeout(resolve, retry * 750)))
     let res
-    const signal = AbortSignal.timeout(60000)
+    const retryArgs = { origin, log, expire, retry: retry + 1, withBody }
+    const signal = AbortSignal.timeout(10000)
     try {
       res = await fetch(DISPATCHER_URL, {
         method: 'POST',
-        body: JSON.stringify({ url: `${origin}${href}`, expire, headers }),
+        body: JSON.stringify({
+          url: `${origin}${href}`,
+          expire,
+          headers,
+          reply: REPLY,
+        }),
         signal,
       })
       log(res.status, href)
     } catch (err) {
-      if (signal.aborted) return get(href, { expire, retry: retry + 1, withBody })
+      if (signal.aborted) return sendRequest(href, retryArgs)
       res || (res = { status: 999, text: () => err.message, err })
       log(res.status, href, 'FAILED')
     }
@@ -75,7 +79,7 @@ export const getDom = (baseUrl, { headers } = {}) => {
       if (res.err?.message === 'body failed') {
         echo('retry', res.status)
         echo(truncate(await res.text()))
-        return get(href, { expire, retry: retry + 1, withBody })
+        return sendRequest(href, retryArgs)
       }
       const err = Error(`${res.statusText}: ${res.status} - ${href}`)
       err.status = res.status
@@ -88,18 +92,64 @@ export const getDom = (baseUrl, { headers } = {}) => {
       throw err
     }
     try {
+      const fromCache = res.headers.get('x-from-cache')
+      if (!fromCache) {
+        const key = res.headers.get('x-request-key')
+        const alreadyPending = pendingRequests.get(key)
+        if (alreadyPending) {
+          alreadyPending.retryArgs = retryArgs
+          return alreadyPending.promise
+        }
+        const { promise, resolve } = Promise.withResolvers()
+        pendingRequests.set(key, { promise, resolve, withBody })
+        return promise
+      }
       const text = await res.text()
       const result =  withBody ? { dom: getData(text), body: text } : getData(text)
-      result[FROM_CACHE] = res.headers.get('x-from-cache')
+      result[FROM_CACHE] = fromCache
       return result
     } catch (err) {
       echo('retry', err.message)
-      return get(href, { expire, retry: retry + 1, withBody })
+      return sendRequest(href, retryArgs)
     }
   }
 
-  get.isFromCache = dom => dom?.[FROM_CACHE]
 
+/**
+ * @param {Request} req the incoming request
+ * @return {Response} the response to send
+ */
+export const recieveResponse = async (req) => {
+  const key = req.headers.get('x-request-key')
+  const pr = pendingRequests.get(key)
+  if (!pr) return new Response(null, 404)
+  const { resolve, withBody } = pr
+  try {
+    const text = await body.text()
+    const result =  withBody ? { dom: getData(text), body: text } : getData(text)
+    pendingRequests.delete(key)
+    resolve(result)
+    return new Response(null, 200)
+  } catch (err) {
+    echo('retry', err.message)
+    return new Response(null, 500)
+  }
+}
+
+export const FROM_CACHE = Symbol('FROM_CACHE')
+const p2 = n => String(n).padStart(2, '0')
+const decodeValues = ([k, v]) => [tryDecode(k), tryDecode(v)]
+export const getDom = (baseUrl, { headers } = {}) => {
+  const { hostname, origin } = new URL(baseUrl)
+  const host = hostname.replace(/^www\./, '')
+  const log = noColor ? console.log : (...args) => logReq(host, ...args)
+  const get = (href, args) => sendRequest(href, {
+    log,
+    origin,
+    ...args,
+    headers: { ...headers, ...args?.headers },
+  })
+  get.isFromCache = dom => dom?.[FROM_CACHE]
   return get
 }
 
