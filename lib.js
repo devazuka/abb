@@ -53,28 +53,22 @@ export const logReq = (host, status, href, detail) => {
 
 const pendingRequests = new Map()
 const sendRequest = async function get(href, { origin, log, expire, retry = 0, withBody, headers } = {}) {
-    // Avoid loop spam, exponentially wait
-    retry > 0 && (await new Promise(resolve => setTimeout(resolve, retry * 750)))
-    let res
-    const retryArgs = { origin, log, expire, retry: retry + 1, withBody }
-    const signal = AbortSignal.timeout(10000)
-    try {
-      res = await fetch(DISPATCHER_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          url: `${origin}${href}`,
-          expire,
-          headers,
-          reply: REPLY,
-        }),
-        signal,
-      })
-      log(res.status, href)
-    } catch (err) {
-      if (signal.aborted) return sendRequest(href, retryArgs)
-      res || (res = { status: 999, text: () => err.message, err })
-      log(res.status, href, 'FAILED')
-    }
+  // Avoid loop spam, exponentially wait
+  retry > 0 && (await new Promise(resolve => setTimeout(resolve, retry * 750)))
+  const retryArgs = { origin, log, expire, retry: retry + 1, withBody }
+  const signal = AbortSignal.timeout(10000)
+  try {
+    const res = await fetch(DISPATCHER_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        url: `${origin}${href}`,
+        expire,
+        headers,
+        reply: REPLY,
+      }),
+      signal,
+    })
+    log(res.status, href)
     if (!res.ok) {
       if (res.err?.message === 'body failed') {
         echo('retry', res.status)
@@ -112,7 +106,15 @@ const sendRequest = async function get(href, { origin, log, expire, retry = 0, w
       echo('retry', err.message)
       return sendRequest(href, retryArgs)
     }
+  } catch (err) {
+    if (signal.aborted) {
+      echo('retry aborted: timeout')
+      return sendRequest(href, retryArgs)
+    }
+    log('---', href, `FAILED: ${err.message}`)
+    throw err
   }
+}
 
 
 /**
