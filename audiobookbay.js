@@ -11,7 +11,7 @@ export let ABBOrigin = 'http://theaudiobookbay.se'
 
 // We do this check asynchronously because sometimes abb is down
 // and we don't want to prevent the service to start if it is.
-fetch('http://185.247.224.117', { redirect: 'manual' }).then(() => {
+fetch('http://185.247.224.117', { redirect: 'manual' }).then((ipResponse) => {
   const location = ipResponse.headers.get('location')
   location && (ABBOrigin = location)
   getABBDom = getDom(ABBOrigin)

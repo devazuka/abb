@@ -1,11 +1,9 @@
-import { cyan, yellow, green, red, gray, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
-import { DOMParser } from 'https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm.ts'
+import { cyan, yellow, green, red, gray, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "@std/fmt/colors"
+import { DOMParser } from '@b-fuze/deno-dom'
 
 const DISPATCHER_URL = Deno.env.get('DISPATCHER_URL') || 'https://dispatch.devazuka.com'
 const PORT = Deno.env.get('PORT')
 const REPLY = PORT ? `http://localhost:${PORT}` : undefined
-
-console.log({ REPLY })
 
 export const parseDom = text =>
   new DOMParser().parseFromString(text, 'text/html')
