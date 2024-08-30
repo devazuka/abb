@@ -7,17 +7,17 @@ import {
   echo,
 } from './lib.js'
 
-// TODO: update to https://audiobookbay.lu (need to update in database too)
-const ipResponse = await fetch('http://185.247.224.117', { redirect: 'manual' })
-export const ABBOrigin = ipResponse.headers.get('location') || 'http://185.247.224.117'
-export const getABBDom = getDom(ABBOrigin)
+export let ABBOrigin = 'http://theaudiobookbay.se'
 
-const isAudiobookAttribute = el => {
-  if (!el.parentElement) return
-  const itemType = el.parentElement.getAttribute('itemtype')
-  if (!itemType) return isAudiobookAttribute(el.parentElement)
-  return itemType === 'https://schema.org/Audiobook'
-}
+// We do this check asynchronously because sometimes abb is down
+// and we don't want to prevent the service to start if it is.
+fetch('http://185.247.224.117', { redirect: 'manual' }).then(() => {
+  const location = ipResponse.headers.get('location')
+  location && (ABBOrigin = location)
+  getABBDom = getDom(ABBOrigin)
+})
+
+export let getABBDom = getDom(ABBOrigin)
 
 const getValue = (key, el) => {
   const content = el.getAttribute('content')
