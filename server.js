@@ -35,6 +35,7 @@ const httpHandler = request => {
 
 export default { fetch: httpHandler }
 
+/*
 setInterval(() => {
   // big scan every day
   syncBooks({ maxPages: 50, startAt: 1 })
@@ -65,3 +66,4 @@ const syncTask = async () => {
 }
 
 syncTask()
+*/
