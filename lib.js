@@ -55,14 +55,19 @@ export const getDom = (baseUrl, { headers } = {}) => {
   const host = hostname.replace(/^www\./, '')
   const log = noColor ? console.log : (...args) => logReq(host, ...args)
   async function get(href, { expire, retry = 0, withBody } = {}) {
+    // Avoid loop spam, exponentially wait
+    retry > 0 && (await new Promise(resolve => setTimeout(resolve, retry * 750)))
     let res
+    const signal = AbortSignal.timeout(60000)
     try {
       res = await fetch(DISPATCHER_URL, {
         method: 'POST',
-        body: JSON.stringify({ url: `${origin}${href}`, expire, headers })
+        body: JSON.stringify({ url: `${origin}${href}`, expire, headers }),
+        signal,
       })
       log(res.status, href)
     } catch (err) {
+      if (signal.aborted) return get(href, { expire, retry: retry + 1, withBody })
       res || (res = { status: 999, text: () => err.message, err })
       log(res.status, href, 'FAILED')
     }
