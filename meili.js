@@ -1,4 +1,4 @@
-import { logReq, echo } from './lib.js'
+import { echo, logReq } from './lib.js'
 
 const meiliUrl = Deno.env.get('MEILI_URL').replace(/\/$/, '')
 const key = Deno.env.get('MEILI_MASTER_KEY')
@@ -38,7 +38,8 @@ export const meli = async (path, data, method) => {
     headers: defaultHeaders,
     body: data && JSON.stringify(data),
   })
-  path.includes('/tasks/') || log(res.status, ...(data?.q ? [`${path}?q=${data.q}`] : [path, method]))
+  path.includes('/tasks/') ||
+    log(res.status, ...(data?.q ? [`${path}?q=${data.q}`] : [path, method]))
   if (res.status === 204) return
   if (!res.ok) {
     const body = await res.text()
@@ -71,11 +72,13 @@ export const updateDocument = documents =>
   meli('/indexes/audiobooks/documents', documents, 'PUT')
 
 export const attributeSearch = async (key, value, props) =>
-  (await meli('/indexes/audiobooks/search', {
-    ...props,
-    attributesToSearchOn: [key],
-    q: value,
-  }))?.hits || []
+  (
+    await meli('/indexes/audiobooks/search', {
+      ...props,
+      attributesToSearchOn: [key],
+      q: value,
+    })
+  )?.hits || []
 
 export const documentExists = async key => {
   const [hit] = await attributeSearch('slug', key, { limit: 1 })
@@ -110,10 +113,11 @@ const push = item => {
   batchTimeout = setTimeout(handleBatch, 1000 - batch.length * 50)
 }
 
-export const waitForAllBookUpdates = () => new Promise((resolve, reject) => {
-  if (!batch.length) return resolve(0)
-  resolvers.push({ resolve, reject })
-})
+export const waitForAllBookUpdates = () =>
+  new Promise((resolve, reject) => {
+    if (!batch.length) return resolve(0)
+    resolvers.push({ resolve, reject })
+  })
 
 export const updateBook = async (data, id) => {
   try {
@@ -130,26 +134,32 @@ export const updateBook = async (data, id) => {
     Object.assign(item, data)
     push(item)
   } catch (err) {
-    echo('update book error:',  err)
+    echo('update book error:', err)
     await new Promise(s => setTimeout(s, 1000))
     return updateBook(data, id)
   }
 }
 
-
-
 // Do some global changes on the database:
 // update the dates format to timestamps (in sec)
 
-const getBooksPages = async function* ({ limit = 10, offset = 0, reverse } = {}) {
+const getBooksPages = async function* ({
+  limit = 10,
+  offset = 0,
+  reverse,
+  ...rest
+} = {}) {
   while (true) {
     try {
       const { results } = await meli('/indexes/audiobooks/documents/fetch', {
         offset,
         limit,
-        // sort: sort || ['uploadDate:desc', 'creationDate:desc'],
+        ...rest,
       })
-      echo('get-books-progress', offset / limit + 1, { offset, count: results.length })
+      echo('get-books-progress', offset / limit + 1, {
+        offset,
+        count: results.length,
+      })
       reverse ? (offset -= limit) : (offset += limit)
       yield results
       if (results.length < limit) break

@@ -1,12 +1,24 @@
-import { cyan, yellow, green, red, gray, blue, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
+import {
+  brightBlue,
+  brightGreen,
+  brightMagenta,
+  brightRed,
+  cyan,
+  gray,
+  green,
+  magenta,
+  red,
+  yellow,
+} from 'https://deno.land/std@0.224.0/fmt/colors.ts'
 import { DOMParser } from 'https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm.ts'
 
-const DISPATCHER_URL = Deno.env.get('DISPATCHER_URL') || 'https://dispatch.devazuka.com'
+const DISPATCHER_URL =
+  Deno.env.get('DISPATCHER_URL') || 'https://dispatch.devazuka.com'
 
 export const parseDom = text =>
   new DOMParser().parseFromString(text, 'text/html')
 
-const noColor = typeof Deno?.noColor === "boolean" ? Deno.noColor : false
+const noColor = typeof Deno?.noColor === 'boolean' ? Deno.noColor : false
 
 const getData = body => {
   try {
@@ -19,25 +31,41 @@ const getData = body => {
 
 export const echo = console.log
 
-const truncate = (text, size = Deno.consoleSize().columns) => text.length < size
-  ? text
-  : `${text.slice(0, size).replaceAll('\n', ' ')}…`
+const truncate = (text, size = Deno.consoleSize().columns) =>
+  text.length < size ? text : `${text.slice(0, size).replaceAll('\n', ' ')}…`
 
 const tryDecode = str => {
-  try   { return decodeURIComponent(str) }
-  catch { return str }
+  try {
+    return decodeURIComponent(str)
+  } catch {
+    return str
+  }
 }
 
-const colors = [cyan, yellow, green, red, brightBlue, brightMagenta, brightGreen, brightRed, magenta]
+const colors = [
+  cyan,
+  yellow,
+  green,
+  red,
+  brightBlue,
+  brightMagenta,
+  brightGreen,
+  brightRed,
+  magenta,
+]
 const coloredHosts = {}
 export const logReq = (host, status, href, detail) => {
-  const coloredHost = coloredHosts[host] || (coloredHosts[host] = colors[Object.keys(coloredHosts).length % colors.length](host))
+  const coloredHost =
+    coloredHosts[host] ||
+    (coloredHosts[host] =
+      colors[Object.keys(coloredHosts).length % colors.length](host))
   const color = status < 300 ? cyan : red
   const { pathname, searchParams } = new URL(`https://${host}${href}`)
   const query = searchParams.get('q')
   const params = query
     ? `${gray('q="')}${brightBlue(query)}${gray('"')}`
-    : searchParams.size && Object.fromEntries([...searchParams].map(decodeValues))
+    : searchParams.size &&
+      Object.fromEntries([...searchParams].map(decodeValues))
   const t = new Date()
   echo(
     color(`${p2(t.getHours())}:${p2(t.getMinutes())}`),
@@ -59,12 +87,14 @@ export const getDom = (baseUrl, { headers } = {}) => {
     try {
       res = await fetch(DISPATCHER_URL, {
         method: 'POST',
-        body: JSON.stringify({ url: `${origin}${href}`, expire, headers })
+        body: JSON.stringify({ url: `${origin}${href}`, expire, headers }),
       })
       log(res.status, href)
     } catch (err) {
-      res || (res = { status: 999, text: () => err.message, err })
-      log(res.status, href, 'FAILED')
+      log(999, href, 'FAILED')
+      console.log(err.stack)
+      //
+      return get(href, { expire, retry: retry + 1, withBody })
     }
     if (!res.ok) {
       if (res.err?.message === 'body failed') {
@@ -84,7 +114,9 @@ export const getDom = (baseUrl, { headers } = {}) => {
     }
     try {
       const text = await res.text()
-      const result =  withBody ? { dom: getData(text), body: text } : getData(text)
+      const result = withBody
+        ? { dom: getData(text), body: text }
+        : getData(text)
       result[FROM_CACHE] = res.headers.get('x-from-cache')
       return result
     } catch (err) {
@@ -126,6 +158,6 @@ export const makeQueue = handler => {
     enqueue(value) {
       queue = queue.then(() => handler(value).then(fullfilled, rejected))
       return queue
-    }
+    },
   }
 }

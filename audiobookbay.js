@@ -1,21 +1,24 @@
 import {
+  echo,
+  findHref,
   getDom,
   parseDom,
   toNormalizedText,
   toText,
-  findHref,
-  echo,
 } from './lib.js'
 
 // TODO: update to https://audiobookbay.lu (need to update in database too)
-const ipResponse = await fetch('http://185.247.224.117', { redirect: 'manual' })
-export const ABBOrigin = ipResponse.headers.get('location') || 'http://185.247.224.117'
+// const ipResponse = await fetch('http://185.247.224.117', { redirect: 'manual' })
+// export const ABBOrigin =
+//   ipResponse.headers.get('location') || 'http://185.247.224.117'
+// export const getABBDom = getDom(ABBOrigin)
+export const ABBOrigin = 'https://audiobookbay.lu'
 export const getABBDom = getDom(ABBOrigin)
 
-const isAudiobookAttribute = el => {
+const _isAudiobookAttribute = el => {
   if (!el.parentElement) return
   const itemType = el.parentElement.getAttribute('itemtype')
-  if (!itemType) return isAudiobookAttribute(el.parentElement)
+  if (!itemType) return _isAudiobookAttribute(el.parentElement)
   return itemType === 'https://schema.org/Audiobook'
 }
 
@@ -81,74 +84,85 @@ const parseSchema = (el, item = {}) => {
   push(item, key, value)
 }
 
-export const getABB = async key => {
-  const dom = await getABBDom(`/abss/${key}/`)
-  const schemas = { author: [], narrator: [] }
-  for (const child of dom.querySelector(
-    '[itemtype="https://schema.org/Audiobook"]',
-  ).children) {
-    parseSchema(child, schemas)
-  }
-
-  const postInfo = dom.querySelector('.postInfo')
-  schemas.cat = [...postInfo.querySelectorAll('[rel="category tag"]')].map(
-    toNormalizedText,
-  )
-
-  schemas.tag = [...postInfo.querySelectorAll('a')]
-    .filter(a => a.getAttribute('href').includes('/tag/'))
-    .map(toNormalizedText)
-
-  const [descriptionBlock, ...textBlocks] =
-    dom.querySelector('[itemprop="description"]')?.children || []
-  if (descriptionBlock) {
-    for (const span of descriptionBlock.querySelectorAll('span')) {
-      push(schemas, span.attributes.class, span.textContent)
+const bookBans = new Set()
+export const getABB = async (key, noCache = false) => {
+  if (bookBans.has(key)) return
+  const dom = await getABBDom(`/abss/${key}/`, noCache ? { expire: -999999 } : {})
+  try {
+    const schemas = { author: [], narrator: [] }
+    for (const child of dom.querySelector(
+      '[itemtype="https://schema.org/Audiobook"]',
+    ).children) {
+      parseSchema(child, schemas)
     }
-    // Extract description text
-    schemas.description = textBlocks.map(toNormalizedText)
-  } else {
-    // Legacy parsing
-    const [descriptionBlock, ...textBlocks] = [
-      ...dom.querySelectorAll('.postContent p'),
-    ].slice(3)
-    const content = descriptionBlock?.textContent || ''
-    for (const line of content.split('\n')) {
-      push(schemas, 'info', line)
-    }
-    schemas.description = textBlocks.map(toNormalizedText)
-  }
 
-  const tracker = []
-  const torrentInfo = { tracker }
-  for (const { children } of dom.querySelectorAll('.torrent_info tr')) {
-    const [key, value] = children
-    if (!key || !value) continue
-    const kk = toText(key)
-    if (kk === 'AD:') continue
-    if (kk === 'Tips:') continue
-    if (kk === 'Tracker:') {
-      tracker.push(toText(value))
-      continue
-    }
-    if (kk === 'Announce URL:') continue
-    if (kk.endsWith('Download:')) continue
-    const k = `${kk[0].toLowerCase()}${kk.slice(1, -1).replaceAll(' ', '')}`
-    torrentInfo[k] = toText(value)
-  }
-  torrentInfo.magnet = `magnet:?xt=urn:btih:${torrentInfo.infoHash}&${new URLSearchParams(
-    [
-      ['dn', decodeURIComponent(key)],
-      ...torrentInfo.tracker.map(t => ['tr', t]),
-    ],
-  )}`
+    const postInfo = dom.querySelector('.postInfo')
+    schemas.cat = [...postInfo.querySelectorAll('[rel="category tag"]')]
+      .map(toNormalizedText)
 
-  return {
-    id: torrentInfo.infoHash,
-    ...torrentInfo,
-    ...schemas,
-    url: `${ABBOrigin}abss/${key}/`,
-    slug: key,
+    schemas.tag = [...postInfo.querySelectorAll('a')]
+      .filter(a => a.getAttribute('href').includes('/tag/'))
+      .map(toNormalizedText)
+
+    const [descriptionBlock, ...textBlocks] =
+      dom.querySelector('[itemprop="description"]')?.children || []
+    if (descriptionBlock) {
+      for (const span of descriptionBlock.querySelectorAll('span')) {
+        push(schemas, span.attributes.class, span.textContent)
+      }
+      // Extract description text
+      schemas.description = textBlocks.map(toNormalizedText)
+    } else {
+      // Legacy parsing
+      const [descriptionBlock, ...textBlocks] = [
+        ...dom.querySelectorAll('.postContent p'),
+      ].slice(3)
+      const content = descriptionBlock?.textContent || ''
+      for (const line of content.split('\n')) {
+        push(schemas, 'info', line)
+      }
+      schemas.description = textBlocks.map(toNormalizedText)
+    }
+
+    const tracker = []
+    const torrentInfo = { tracker }
+    for (const { children } of dom.querySelectorAll('.torrent_info tr')) {
+      const [key, value] = children
+      if (!key || !value) continue
+      const kk = toText(key)
+      if (kk === 'AD:') continue
+      if (kk === 'Tips:') continue
+      if (kk === 'Tracker:') {
+        tracker.push(toText(value))
+        continue
+      }
+      if (kk === 'Announce URL:') continue
+      if (kk.endsWith('Download:')) continue
+      const k = `${kk[0].toLowerCase()}${kk.slice(1, -1).replaceAll(' ', '')}`
+      torrentInfo[k] = toText(value)
+    }
+    torrentInfo.magnet = `magnet:?xt=urn:btih:${torrentInfo.infoHash}&${new URLSearchParams(
+      [
+        ['dn', decodeURIComponent(key)],
+        ...torrentInfo.tracker.map(t => ['tr', t]),
+      ],
+    )}`
+
+    return {
+      id: torrentInfo.infoHash,
+      ...torrentInfo,
+      ...schemas,
+      url: `${ABBOrigin}abss/${key}/`,
+      slug: key,
+    }
+  } catch (err) {
+    if (noCache || !getABBDom.isFromCache(dom)) {
+      bookBans.add(key)
+      console.log('book', { key }, 'was added to ban list after retry and failing to read')
+      return
+    }
+    console.error('Unable to parse cached page', err, 'will retry without cache')
+    return getABB(key, true)
   }
 }
 
@@ -178,7 +192,7 @@ export const getABB = async key => {
 
 export const getABBPageResults = async page => {
   const dom = await getABBDom(page === 1 ? '' : `/page/${page}/`, {
-    expire: 3*60*1000,
+    expire: 3 * 60 * 1000,
   })
   const results = [...dom.getElementsByClassName('post')]
   return results.map(function parse(el) {

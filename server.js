@@ -1,7 +1,6 @@
-import { meliProxySearch, forEachBook } from './meili.js'
+import { cyan, yellow, green, red, gray, blue, brightBlue, brightMagenta, brightGreen, brightRed, magenta } from "https://deno.land/std@0.224.0/fmt/colors.ts"
+import { meliProxySearch, meli,  } from './meili.js'
 import { proxyImage } from './image-proxy.js'
-import { queueGR } from './goodreads.js'
-import { queueAA } from './annasarchive.js'
 import { waitUntilNoSyncPending, syncBooks } from './mod.js'
 
 const PAGE_NOT_FOUND = new Response('Page not found: Error 404', {
@@ -37,31 +36,40 @@ export default { fetch: httpHandler }
 
 setInterval(() => {
   // big scan every day
-  syncBooks({ maxPages: 50, startAt: 1 })
+  // syncBooks({ maxPages: 50, startAt: 1 })
 }, 24*60*60*1000)
 
 setInterval(() => {
   // Full scan every week
-  syncBooks({ maxPages: 500, startAt: 1 })
+  // syncBooks({ maxPages: 500, startAt: 1 })
 }, 24*60*60*1000 * 7)
 
-let total = 0
 const syncTask = async () => {
-  const after = 1724596276
   await syncBooks({ maxPages: 5, startAt: 1 })
-  for await (const book of forEachBook({
-    limit: 100,
-    reverse: true,
-    offset: 130000,
-  })) {
-    await waitUntilNoSyncPending()
-    total++
-    const done = book.gr_updatedAt > after
-    book.aa_href || queueAA.enqueue(book)
-    if (done) continue
-    const grChanges = await queueGR.enqueue(book)
-    console.log({ total })
+  /*
+  let total = 0
+  const _ = s => magenta(String(s).padStart(2, '0'))
+  while (true) {
+    const hits = (await meli('/indexes/audiobooks/search', {
+      q: '',
+      sort: ['gr_updatedAt:asc'],
+      limit: 25,
+    }))?.hits || []
+    for (const book of hits) {
+      await waitUntilNoSyncPending()
+      total++
+      const diffSec = Math.round(Date.now() /1000) - book.gr_updatedAt
+      const mm = Math.trunc(diffSec / 60) % 60
+      const hh = Math.trunc(diffSec / 60 / 60) % 24
+      const dd = Math.trunc(diffSec / 60 / 60 / 24)
+      console.log(`${_(dd)}j${_(hh)}h${_(mm)}m${_(diffSec%60)}s`, diffSec)
+      book.aa_href || queueAA.enqueue(book)
+      const grChanges = await queueGR.enqueue(book) 
+      console.log({ total })
+    }
   }
+  */
+  setTimeout(syncTask, 60000)
 }
 
 syncTask()

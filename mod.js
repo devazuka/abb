@@ -1,12 +1,12 @@
-import { queueGR } from './goodreads.js'
-import { waitForAllBookUpdates, updateBook, documentExists } from './meili.js'
 import { queueAA } from './annasarchive.js'
 import { getABB, getABBPageResults } from './audiobookbay.js'
+import { queueGR } from './goodreads.js'
+import { documentExists, updateBook, waitForAllBookUpdates } from './meili.js'
 
 // Because AA as a strict rate limiting we run those query with a delay
 let SYNC_PENDING = Promise.resolve()
 export const waitUntilNoSyncPending = () => SYNC_PENDING
-export const syncBooks = (args) => {
+export const syncBooks = args => {
   const result = SYNC_PENDING.then(() => _syncBooks(args))
   SYNC_PENDING = result.catch(() => {})
   return result
@@ -23,6 +23,7 @@ const _syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
     let newBooks
     for (const n of preFetchSize) {
       const page = n + i
+      if (page > 500) continue
       if (preFetchedPages[page]) continue
       preFetchedPages[page] = getABBPageResults(page)
     }
@@ -35,6 +36,7 @@ const _syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
           let book = await documentExists(b.key)
           if (!book?.name) {
             book = await getABB(b.key)
+            if (!book) continue
             updateBook(book)
             newBooks.push(book)
           }
@@ -54,5 +56,4 @@ const _syncBooks = async ({ maxPages = 3, startAt = 1, step = 1 } = {}) => {
   }
   await waitForAllBookUpdates()
   console.log(`total books added: ${total}/${scanned}`, total)
-  setTimeout(syncBooks, 10*60*1000)
 }

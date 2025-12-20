@@ -483,7 +483,7 @@ const searchConfig = {
 }
 
 const queryCache = new Map()
-const multiSearch = async query => {
+const multiSearch = async (signal, query) => {
   // TODO: get the selected attrs here
   const key = JSON.stringify(query)
   const cached = queryCache.get(key)
@@ -491,6 +491,7 @@ const multiSearch = async query => {
   const res = await fetch('/search', {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...searchConfig, ...query }),
+    signal,
     redirect: 'follow',
     method: 'POST',
     mode: 'cors',
@@ -572,7 +573,7 @@ const formatResult = (hit, n) => {
 
 let raf
 let searchResult = []
-const search = async () => {
+const search = async (signal) => {
   const selectedAttrs = attrsElements
     .filter(attr => attr.checkbox.checked)
     .map(attr => attr.name)
@@ -583,7 +584,7 @@ const search = async () => {
   params.set('a', localStorage.attrs = selectedAttrs.join(' '))
   history.replaceState(null, '', `?${params}`)
   const query = searchInput.value.trim()
-  const result = await multiSearch({
+  const result = await multiSearch(signal, {
     q: searchInput.value,
     attributesToSearchOn: activeAttrs,
     attributesToHighlight: activeAttrs,
@@ -602,6 +603,14 @@ const search = async () => {
   })
 }
 
+let controller
+const searchThrottled = () => {
+  clearTimeout(controller?.timeoutId)
+  controller?.abort()
+  controller = new AbortController()
+  controller.timeoutId = setTimeout(search, controller.signal, 300)
+}
+
 const hitsElem = document.getElementById('hits')
 const searchInput = document.getElementById('search')
 const hitCountElem = document.getElementById('hit-count')
@@ -609,10 +618,10 @@ const hitsPerPageSelect = document.getElementById('hits-per-page')
 const params = new URL(location).searchParams
 
 hitsPerPageSelect.value = params.get('s') || localStorage.hitsPerPage ||'50'
-hitsPerPageSelect.oninput = search
+hitsPerPageSelect.oninput = searchThrottled
 
 searchInput.value = params.get('q') || localStorage.search || ''
-searchInput.oninput = search
+searchInput.oninput = searchThrottled
 
 
 const initialAttrsSelected = (params.get('a') || localStorage.attrs || '').split('+')

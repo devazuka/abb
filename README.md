@@ -1,5 +1,12 @@
 # abb
 
+TODO:
+
+- add background task of filling in missing data (annasarchive, goodreads)
+- make a system to follow series and get notified
+- Darkmode
+
+
 ABB Search, includes:
   - ABB Scrapper
   - Goodreads search results

@@ -1,4 +1,11 @@
-import { getDom, parseDom, toNormalizedText, makeQueue, echo, FROM_CACHE } from './lib.js'
+import {
+  FROM_CACHE,
+  echo,
+  getDom,
+  makeQueue,
+  parseDom,
+  toNormalizedText,
+} from './lib.js'
 import { updateBook } from './meili.js'
 
 const getAADom = getDom('http://annas-archive.org')
@@ -6,7 +13,11 @@ const getAADom = getDom('http://annas-archive.org')
 const isDiv = node => node.tagName === 'DIV'
 const isComment = node => node.nodeName === '#comment'
 export const searchAA = async (query, index) => {
-  const { dom, body, [FROM_CACHE]: fromCache } = await getAADom(
+  const {
+    dom,
+    body,
+    [FROM_CACHE]: fromCache,
+  } = await getAADom(
     `/search?${new URLSearchParams([
       ['q', query],
       ['index', index || ''],
@@ -18,14 +29,16 @@ export const searchAA = async (query, index) => {
   )
 
   const expected = body ? body.split('href="/md5/').length - 1 : 0
-  const results = [...dom.getElementsByClassName('h-[125] flex flex-col justify-center')]
+  const results = [
+    ...dom.getElementsByClassName('h-[125] flex flex-col justify-center'),
+  ]
     .map(el => {
       const links = el.getElementsByTagName('A')
       if (links[0]) return links[0]
       const comment = [...el.childNodes].find(isComment)
       return comment && parseDom(comment.data).getElementsByTagName('A')?.[0]
     })
-    .map((link) => {
+    .map(link => {
       if (!link) return
       const [title] = link.getElementsByTagName('h3')
       if (!title) return
@@ -45,10 +58,11 @@ export const searchAA = async (query, index) => {
     })
     .filter(Boolean)
 
-  expected === results.length || echo('missing results', {
-    expected,
-    got: results.length
-  })
+  expected === results.length ||
+    echo('missing results', {
+      expected,
+      got: results.length,
+    })
 
   results[FROM_CACHE] = fromCache
 
@@ -63,3 +77,10 @@ export const syncBookAA = async book => {
 }
 
 export const queueAA = makeQueue(syncBookAA, 'annas-archive')
+/*
+22:51 200 search.devazuka.com/indexes/audiobooks/search q="the-house-of-last-resort-a-novel-christopher-golden"
+22:51 200 theaudiobookbay.se/abss/the-house-of-last-resort-a-novel-christopher-golden/
+missing results { expected: 100, got: 0 }
+22:51 200 annas-archive.org/search q="Ancient China: 500 Interesting Facts About Early Chinese History - Ahoy Publications"
+22:51 200 annas-archive.org/search q="Obit (A Collins-Burke Mystery #2 - Anne Emery"
+*/
