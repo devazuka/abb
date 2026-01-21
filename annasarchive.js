@@ -8,7 +8,7 @@ import {
 } from './lib.js'
 import { updateBook } from './meili.js'
 
-const getAADom = getDom('http://annas-archive.org')
+const getAADom = getDom('http://annas-archive.li')
 
 const isDiv = node => node.tagName === 'DIV'
 const isComment = node => node.nodeName === '#comment'
