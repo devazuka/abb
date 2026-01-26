@@ -11,20 +11,27 @@ const responseIndex = async () =>
     headers: { 'content-type': 'text/html;charset=UTF-8' },
   })
 
-const PAGE_INDEX = await responseIndex()
-const FONT = new Response(await Deno.readFile('./barlow-condensed.woff2'), {
-  status: 200,
-  headers: { 'content-type': 'font/woff2' },
-})
+const PAGE_INDEX_BYTES = await Deno.readFile('./search.html')
+const FONT_BYTES = await Deno.readFile('./barlow-condensed.woff2')
+const responseIndexCached = () =>
+  new Response(PAGE_INDEX_BYTES, {
+    status: 200,
+    headers: { 'content-type': 'text/html;charset=UTF-8' },
+  })
+const responseFontCached = () =>
+  new Response(FONT_BYTES, {
+    status: 200,
+    headers: { 'content-type': 'font/woff2' },
+  })
 
 const httpHandler = request => {
   console.log(Object.fromEntries(request.headers))
   const { pathname, hostname, searchParams } = new URL(request.url)
   if (pathname === '/') {
     const isDev = hostname === '0.0.0.0' || hostname === 'localhost'
-    return isDev ? responseIndex() : PAGE_INDEX
+    return isDev ? responseIndex() : responseIndexCached()
   }
-  if (pathname === '/barlow-condensed.woff2') return FONT
+  if (pathname === '/barlow-condensed.woff2') return responseFontCached()
   if (pathname === '/search') return meliProxySearch(request)
   if (pathname === '/reply') return recieveResponse(request)
   if (pathname === '/img') return proxyImage(searchParams.get('id'))
