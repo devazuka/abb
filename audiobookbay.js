@@ -12,7 +12,7 @@ import {
 // export const ABBOrigin =
 //   ipResponse.headers.get('location') || 'http://185.247.224.117'
 // export const getABBDom = getDom(ABBOrigin)
-export const ABBOrigin = 'https://audiobookbay.lu'
+export const ABBOrigin = 'https://audiobookbay.lu/'
 export const getABBDom = getDom(ABBOrigin)
 
 const _isAudiobookAttribute = el => {
@@ -126,7 +126,7 @@ export const getABB = async (key, noCache = false) => {
 
     const tracker = []
     const torrentInfo = { tracker }
-    for (const { children } of dom.querySelectorAll('.torrent_info tr')) {
+    for (const { children } of dom.querySelectorAll('.torrent_infos tr, .torrent_info tr')) {
       const [key, value] = children
       if (!key || !value) continue
       const kk = toText(key)

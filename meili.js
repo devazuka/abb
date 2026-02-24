@@ -122,7 +122,10 @@ export const waitForAllBookUpdates = () =>
 export const updateBook = async (data, id) => {
   try {
     if (!data) return
-    if (!data.id && !(data.id = id)) throw Error('missing data id')
+    if (!data.id && !(data.id = id)) {
+      console.log('missing data id', data)
+      return
+    }
     const match = batch.find(i => i.id === data.id)
     if (match) return Object.assign(match, data)
     const item = { id: data.id }
