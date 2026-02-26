@@ -72,7 +72,11 @@ export const searchAA = async (query, index) => {
 export const syncBookAA = async book => {
   if (book.aa_href || book.aa_updatedAt) return { [FROM_CACHE]: true }
   const aa = await searchAA(book.name)
-  updateBook({ ...aa[0], aa_updatedAt: Math.trunc(Date.now() / 1000) }, book.id)
+  if (!book.id) {
+    console.log('missing book id', book)
+  } else {
+    updateBook({ ...aa[0], aa_updatedAt: Math.trunc(Date.now() / 1000) }, book.id)
+  }
   return aa
 }
 

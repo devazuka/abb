@@ -126,7 +126,7 @@ export const getABB = async (key, noCache = false) => {
 
     const tracker = []
     const torrentInfo = { tracker }
-    for (const { children } of dom.querySelectorAll('.torrent_infos tr, .torrent_info tr')) {
+    for (const { children } of dom.querySelectorAll('.torrent_infos tr, .torrent_info tr, .postContent tr')) {
       const [key, value] = children
       if (!key || !value) continue
       const kk = toText(key)
